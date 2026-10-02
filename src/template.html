@@ -137,6 +137,11 @@ dialog.alert{margin:auto;width:min(320px,calc(100% - 32px));border-radius:var(--
 .abody .footnote{white-space:pre-wrap;user-select:text;-webkit-user-select:text;overflow-wrap:anywhere}
 .abtn{display:grid;border-top:1px solid var(--sep)}
 .abtn>*+*{border-top:1px solid var(--sep)}
+/* モード切り替えの読み込み画面（表示時間と輪の形は仮。HIG に数値の規定なし） */
+#modeLoad:not([hidden]){position:fixed;inset:0;z-index:20;background:var(--bg);display:grid;place-items:center;align-content:center;gap:16px;text-align:center;padding:16px}
+.spin{width:28px;height:28px;border-radius:50%;border:3px solid var(--fill);border-top-color:var(--label2);animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
 input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent);flex:none}
 </style>
 
@@ -144,6 +149,7 @@ input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent);flex:none
   <nav class="tabbar" id="tabs" aria-label="セクション"></nav>
   <div id="view" class="stack"></div>
 </div>
+<div id="modeLoad" hidden role="status"><div class="spin" aria-hidden="true"></div><p class="headline" id="modeMsg"></p></div>
 <dialog id="sheet" aria-labelledby="sheetTitle"></dialog>
 <dialog id="alert" class="alert" aria-labelledby="alertTitle"></dialog>
 
@@ -187,7 +193,13 @@ const OILY=['油いため','ソテー','フライ','から揚げ','天ぷら','�
 /* ---------- 保存 ---------- */
 const SK='eiyo-v2';
 let S={tab:'rec',seq:1,records:[],recipes:[],custom:[],portions:{},learned:{},updated:0};
-let V={screen:'list',rec:null,day:0,res:-1,rcp:null,per:1};   /* 画面の状態（保存しない） */
+/* モード：pro＝栄養士（対象者ごとの聞き取り記録）、self＝自分用（日付ごとの食事記録）。自分用のデータは S.me に分けて持つ */
+const dkey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const dparse=k=>{const a=k.split('-');return new Date(+a[0],+a[1]-1,+a[2])};
+const dlabel=k=>dparse(k).toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'});
+const fixS=()=>{if(S.mode!=='self')S.mode='pro';if(!S.me||typeof S.me!=='object')S.me={};S.me.target=S.me.target||{};S.me.days=S.me.days||{}};
+const SELF=()=>S.mode==='self';
+let V={screen:'list',rec:null,day:0,res:-1,rcp:null,per:1,date:dkey(new Date())};   /* 画面の状態（保存しない） */
 let MODE='i';
 function loadState(){
   try{const t=JSON.parse(localStorage.getItem(SK)||'null');if(t&&t.records){S=Object.assign(S,t);return}}catch(e){}
@@ -195,7 +207,7 @@ function loadState(){
     if(o){S.portions=o.portions||{};S.learned=o.learned||{};S.seq=(o.seq||1)+1;
       (o.dishes||[]).forEach(d=>S.recipes.push({id:d.id,name:d.name,servings:d.servings,items:d.items||[]}))}}catch(e){}
 }
-loadState();
+loadState();fixS();
 /* 端末間の同期。公開版（config.js で接続先を指定したとき）だけ動く。
    ログイン＝Firebase Authentication（メールとパスワード）、保存＝Cloud Firestore の users/{uid}/state/main。
    新しいほうで上書きする方式（最後に保存した端末の内容が残る）。 */
@@ -226,8 +238,8 @@ const Sync={msg:'',at:0,timer:0,busy:false,
       if(!r.ok)throw new Error('読み込めませんでした（'+r.status+'）。');
       const d=await r.json(),up=+(d.fields&&d.fields.updated&&d.fields.updated.integerValue||0);
       if(first||up>(S.updated||0)){
-        const t=JSON.parse(d.fields.json.stringValue),tab=S.tab;
-        S=Object.assign({tab,seq:1,records:[],recipes:[],custom:[],portions:{},learned:{}},t,{tab});
+        const t=JSON.parse(d.fields.json.stringValue),tab=S.tab,mode=S.mode;
+        S=Object.assign({tab,seq:1,records:[],recipes:[],custom:[],portions:{},learned:{}},t,{tab,mode});fixS();
         try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}
         if(!$('sheet').open&&!$('alert').open)render();
       }else if((S.updated||0)>up){this.busy=false;await this.doPush();return}
@@ -249,7 +261,7 @@ const Sync={msg:'',at:0,timer:0,busy:false,
   show(){const e=$('syncMsg');if(e)e.textContent=this.msg||(this.at?'最後の同期：'+new Date(this.at).toLocaleTimeString('ja-JP'):'')},
   idle(){const a=document.activeElement;return !$('sheet').open&&!$('alert').open&&!(a&&a.dataset&&a.dataset.add!=null&&a.value)}
 };
-const save=()=>{S.updated=Date.now();try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}Sync.push()};
+const save=()=>{S.updated=Date.now();for(const k in S.me.days){const d=S.me.days[k];if(k!==V.date&&!d.menus.length)delete S.me.days[k]}try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}Sync.push()};
 const newDay=()=>({menus:[],chk:[false,false,false,false]});
 if(!S.records.length&&!S.recipes.length&&!S.custom.length&&S.seq<=1){
   const it=(id,g)=>({n:S.seq++,id,g,t:'a',r:false});
@@ -257,8 +269,9 @@ if(!S.records.length&&!S.recipes.length&&!S.custom.length&&S.seq<=1){
     {n:S.seq++,meal:0,name:'ごはん',items:[it('01088',150)]},{n:S.seq++,meal:0,name:'目玉焼き',items:[it('12021',60)]},
     {n:S.seq++,meal:1,name:'うどん',items:[it('01039',250)]}]}]});
 }
-const curRec=()=>S.records.find(r=>r.id===V.rec);
-const curDay=()=>{const r=curRec();return r&&r.days[Math.min(V.day,r.days.length-1)]};
+const meDay=()=>S.me.days[V.date]||(S.me.days[V.date]=newDay());
+const curRec=()=>SELF()?{id:'me',self:true,label:dlabel(V.date),target:S.me.target,days:[meDay()]}:S.records.find(r=>r.id===V.rec);
+const curDay=()=>{if(SELF())return meDay();const r=curRec();return r&&r.days[Math.min(V.day,r.days.length-1)]};
 const curRcp=()=>S.recipes.find(r=>r.id===V.rcp);
 
 /* ---------- 計算 ---------- */
@@ -441,10 +454,11 @@ function itemRow(it){
 const addField=(key,ph)=>`<input class="input add" type="search" data-add="${key}" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="食材名と量" placeholder="${ph}"><div data-sug="${key}"></div><div class="footnote sec note" role="status" data-st="${key}" hidden style="padding-block:6px"></div>`;
 
 /* ---------- 画面 ---------- */
-const TABS=[['rec','記録'],['rcp','レシピ'],['my','マイ食品'],['set','設定']];
+const TABSET={pro:[['rec','記録'],['rcp','レシピ'],['my','マイ食品'],['set','設定']],self:[['day','食事'],['rcp','レシピ'],['my','マイ食品'],['set','設定']]};
+const MNAME={pro:'栄養士モード',self:'自分用モード'};
 function render(){
-  $('tabs').innerHTML=TABS.map(([k,l])=>`<button data-tab="${k}"${S.tab===k?' aria-current="page"':''}>${l}</button>`).join('');
-  const f={rec:V.screen==='edit'?viewEdit:V.screen==='result'?viewResult:viewList,rcp:V.screen==='rcpedit'?viewRcpEdit:V.screen==='rcpres'?viewRcpResult:viewRcpList,my:viewMy,set:viewSet}[S.tab];
+  $('tabs').innerHTML=TABSET[S.mode].map(([k,l])=>`<button data-tab="${k}"${S.tab===k?' aria-current="page"':''}>${l}</button>`).join('');
+  const f={day:V.screen==='result'?viewResult:viewSelf,rec:V.screen==='edit'?viewEdit:V.screen==='result'?viewResult:viewList,rcp:V.screen==='rcpedit'?viewRcpEdit:V.screen==='rcpres'?viewRcpResult:viewRcpList,my:viewMy,set:viewSet}[S.tab];
   MODE=S.tab==='rcp'?'r':'i';
   $('view').innerHTML=f();
 }
@@ -458,15 +472,28 @@ function viewList(){
 function menuHTML(m){
   return `<div class="group" data-menu="${m.n}"><div class="rowin"><input class="input headline" data-mname="${m.n}" aria-label="メニュー名" placeholder="メニュー名（例：野菜炒め）" value="${esc(m.name||'')}"><button class="btn destructive plain" data-mdel="${m.n}">削除</button></div>${m.items.map(itemRow).join('')}${addField(m.n,'＋ 食材を追加（例：ごはん 150）')}</div>`;
 }
+function mealsHTML(day){
+  return MEALS.map((name,mi)=>{const ms=day.menus.filter(m=>m.meal===mi);
+    return `<section class="stack" style="gap:8px"><div class="ghead" style="padding-bottom:0"><h2 class="headline" style="margin:0">${name}</h2><span class="footnote sec num">${ms.reduce((a,m)=>a+m.items.length,0)}品</span></div>
+    ${ms.map(menuHTML).join('')}
+    ${ms.length?`<button class="btn gray block" data-madd="${mi}">${name}にメニューを追加</button>`:`<div class="group">${addField('new-'+mi,'＋ 食材を追加（例：ごはん 150）')}</div>`}</section>`}).join('');
+}
+function viewSelf(){
+  const day=curDay(),r=curRec(),a=dayAgg(day),tg=target(r),today=dkey(new Date());
+  return `<h1 class="large">${V.date===today?'今日の食事':esc(dlabel(V.date))}</h1>
+  <div class="inline narrow"><button class="btn gray" id="dPrev" aria-label="前の日">‹</button><input class="input" type="date" id="dSel" aria-label="日付" value="${V.date}"><button class="btn gray" id="dNext" aria-label="次の日">›</button>${V.date!==today?'<button class="btn gray" id="dToday">今日</button>':''}</div>
+  <section class="narrow"><div class="ghead"><span class="footnote sec">この日の合計</span></div><div class="group">${nutRows(a.v,tg,[0,1,4,5])}</div>
+  <div class="gfoot footnote sec">${tg.notes.length?tg.notes.map(esc).join('<br>'):'目標を設定すると、目標との比較が出ます。'}</div></section>
+  <div class="narrow"><button class="btn gray block" id="setTarget">自分の目標を設定</button></div>
+  <div class="cols">${mealsHTML(day)}</div>
+  <div class="narrow"><button class="btn primary block" id="confirm">くわしい結果を見る</button></div>`;
+}
 function viewEdit(){
   const r=curRec();if(!r){V.screen='list';return viewList()}
   const day=curDay(),nd=r.days.length;
   const dayCtl=nd>1?(nd<=5?`<div class="seg" role="radiogroup" aria-label="日">${segHTML('day',r.days.map((d,i)=>[i,(i+1)+'日目']),V.day)}</div>`
     :`<select class="input" id="daySel" aria-label="日">${r.days.map((d,i)=>`<option value="${i}"${i===V.day?' selected':''}>${i+1}日目</option>`).join('')}</select>`):'';
-  const meals=MEALS.map((name,mi)=>{const ms=day.menus.filter(m=>m.meal===mi);
-    return `<section class="stack" style="gap:8px"><div class="ghead" style="padding-bottom:0"><h2 class="headline" style="margin:0">${name}</h2><span class="footnote sec num">${ms.reduce((a,m)=>a+m.items.length,0)}品</span></div>
-    ${ms.map(menuHTML).join('')}
-    ${ms.length?`<button class="btn gray block" data-madd="${mi}">${name}にメニューを追加</button>`:`<div class="group">${addField('new-'+mi,'＋ 食材を追加（例：ごはん 150）')}</div>`}</section>`}).join('');
+  const meals=mealsHTML(day);
   return `<div class="navrow"><button class="btn plain" data-back="list">‹ 記録</button><button class="btn plain destructive" id="delRec">記録を削除</button></div>
   <div class="field narrow"><label class="footnote sec" for="rlabel">番号・メモ（氏名は入れない）</label><input class="input" id="rlabel" placeholder="例：A-012" value="${esc(r.label||'')}"></div>
   <div class="inline">${dayCtl?`<div style="flex:1;min-width:0">${dayCtl}</div>`:''}<button class="btn gray" id="addDay"${nd>=7?' disabled':''}>日を追加</button>${nd>1?'<button class="btn gray destructive" id="delDay">この日を削除</button>':''}</div>
@@ -501,7 +528,7 @@ function viewResult(){
   const a=recAgg(r,nd>1?V.res:0),tg=target(r),d=nd>1?V.res:0;
   const days=d>=0?[r.days[d]]:r.days,warn=[];
   days.forEach((x,i)=>{const lab=d>=0||nd===1?'':(i+1)+'日目：';
-    const un=CHK.filter((c,k)=>!(x.chk&&x.chk[k]));if(un.length)warn.push(lab+un.join('、')+'は未確認');
+    const un=r.self?[]:CHK.filter((c,k)=>!(x.chk&&x.chk[k]));if(un.length)warn.push(lab+un.join('、')+'は未確認');
     const its=x.menus.flatMap(m=>m.items);const na=its.filter(t=>t.g==null).length,tp=its.filter(t=>t.tmp).length;
     if(na)warn.push(lab+'量が未入力の行が'+na+'件');if(tp)warn.push(lab+'調理法が仮の行が'+tp+'件')});
   const meals=a.meals.map((M,i)=>M.v[0]>0||M.menus.length?`<div class="row"><span class="grow">${MEALS[i]}${M.menus.length?`<span class="subhead sec wrap">${M.menus.map(x=>esc(x.m.name||x.m.items.map(itemName).join('・'))+' '+r0(x.v[0])+' kcal').join('<br>')}</span>`:''}</span><span class="val num">${r0(M.v[0])} kcal</span></div>`:'').join('');
@@ -555,7 +582,11 @@ function viewMy(){
   ${rows?`<div class="group">${rows}</div>`:emptyNote('成分表にない市販品や外食を、栄養成分表示の値で登録します。登録した食品は、記録やレシピで名前を入力すると候補に出ます。')}</div>`;
 }
 function viewSet(){
+  const other=SELF()?'pro':'self';
   return `<h1 class="large">設定</h1><div class="stack narrow">
+  <section><div class="ghead"><span class="footnote sec">モード</span></div><div class="stack" style="gap:8px"><div class="group"><div class="row"><span class="grow">いまのモード<span class="subhead sec wrap">${SELF()?'自分の食事を日付ごとに記録します。':'対象者ごとに、聞き取った食事を記録します。'}</span></span><span class="val">${MNAME[S.mode]}</span></div></div>
+  <button class="btn primary block" id="modeSw">${MNAME[other]}に切り替える</button></div>
+  <div class="gfoot footnote sec">レシピ、マイ食品、目安量は両方のモードで共通です。</div></section>
   ${syncHTML()}
   <section><div class="ghead"><span class="footnote sec">バックアップ</span></div><div class="stack" style="gap:8px"><button class="btn gray block" id="expBtn">すべてのデータを書き出す</button>
   <textarea class="input" id="io" aria-label="バックアップのデータ" placeholder="書き出したデータがここに出ます。読み込むときは、ここに貼り付けます。"></textarea>
@@ -688,7 +719,7 @@ function drawCustom(){
 const readCustom=()=>{if($('c_name'))cur.name=$('c_name').value.trim();if($('c_unit'))cur.unit=$('c_unit').value.trim();CUF.forEach(([j])=>{const v=numOf('c_v'+j);cur.v[j]=v==null?0:v})};
 function commit(){
   if(sheetKind==='item'){readAmt();const f=findItem(cur.n);if(f){cur.tmp=false;f.l[f.k]=cur}}
-  else if(sheetKind==='target'){readTarget();curRec().target=cur}
+  else if(sheetKind==='target'){readTarget();if(SELF())S.me.target=cur;else curRec().target=cur}
   else if(sheetKind==='custom'){readCustom();if(!cur.name){$('c_name').focus();return}
     if(cur.id){const k=S.custom.findIndex(x=>x.id===cur.id);S.custom[k]=cur}else{cur.id='c'+S.seq++;S.custom.push(cur)}}
   save();render();$('sheet').close();
@@ -741,6 +772,7 @@ document.addEventListener('keydown',e=>{const t=e.target;if(t.dataset&&t.dataset
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.name==='day'||t.id==='daySel'){V.day=+t.value;render()}
+  else if(t.id==='dSel'){V.date=t.value||dkey(new Date());render()}
   else if(t.name==='res'){V.res=+t.value;render()}
   else if(t.name==='per'){V.per=+t.value;render()}
   else if(t.dataset.mname){const m=curDay().menus.find(x=>x.n===+t.dataset.mname);if(m){m.name=t.value.trim();save()}}
@@ -761,6 +793,9 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;const ds=b.dataset;
   if(ds.tab){S.tab=ds.tab;V.screen=ds.tab==='rcp'?'rcplist':'list';save();render();window.scrollTo(0,0)}
   else if(ds.back){V.screen=ds.back;render();window.scrollTo(0,0)}
+  else if(b.id==='modeSw')switchMode();
+  else if(b.id==='dPrev'||b.id==='dNext'){const d=dparse(V.date);d.setDate(d.getDate()+(b.id==='dNext'?1:-1));V.date=dkey(d);render()}
+  else if(b.id==='dToday'){V.date=dkey(new Date());render()}
   else if(b.id==='newRec'){const r={id:'r'+S.seq++,label:'',created:Date.now(),target:{},days:[newDay()]};S.records.push(r);V.rec=r.id;V.day=0;V.screen='edit';save();render();window.scrollTo(0,0)}
   else if(ds.open){V.rec=ds.open;V.day=0;V.res=-1;V.screen='edit';render();window.scrollTo(0,0)}
   else if(b.id==='addDay'){const r=curRec();r.days.push(newDay());V.day=r.days.length-1;save();render()}
@@ -800,8 +835,8 @@ document.addEventListener('click',e=>{
   else if(b.id==='expBtn'){$('io').value=JSON.stringify(S);$('io').select();$('ioMsg').textContent='書き出しました。全体を選択してコピーし、別の端末の同じ欄に貼り付けて読み込みます。'}
   else if(b.id==='impBtn'){let t=null;try{t=JSON.parse($('io').value)}catch(x){}
     if(!t||!Array.isArray(t.records)){$('ioMsg').textContent='読み込めませんでした。書き出したデータをそのまま貼り付けてください。';return}
-    ask('貼り付けたデータで置き換えますか？','この端末のいまのデータは消えます。',[{l:'置き換える',d:1,f:()=>{S=Object.assign({tab:'set',seq:1,records:[],recipes:[],custom:[],portions:{},learned:{}},t);S.tab='set'}},CANCEL])}
-  else if(b.id==='wipe')ask('すべてのデータを消去しますか？','記録、レシピ、マイ食品、目安量がすべて消えます。',[{l:'消去',d:1,f:()=>{S={tab:'set',seq:2,records:[],recipes:[],custom:[],portions:{},learned:{},updated:0}}},CANCEL]);
+    ask('貼り付けたデータで置き換えますか？','この端末のいまのデータは消えます。',[{l:'置き換える',d:1,f:()=>{const mode=S.mode;S=Object.assign({tab:'set',seq:1,records:[],recipes:[],custom:[],portions:{},learned:{}},t,{mode});S.tab='set';fixS()}},CANCEL])}
+  else if(b.id==='wipe')ask('すべてのデータを消去しますか？','両方のモードの記録、レシピ、マイ食品、目安量がすべて消えます。',[{l:'消去',d:1,f:()=>{const mode=S.mode;S={tab:'set',mode,seq:2,records:[],recipes:[],custom:[],portions:{},learned:{},updated:0};fixS()}},CANCEL]);
   else if(ds.a!=null){const x=$('alert')._b[+ds.a];$('alert').close();if(x.f){x.f();save();render()}}
 });
 /* 行のスワイプ：左に動かすと右端に削除ボタンが出る（iOS 標準と同じ向き）。半分以上引くと開いたままになる */
@@ -822,7 +857,13 @@ const Swipe={justMoved:false,justClosed:false,
 (()=>{let y0=null;const s=$('sheet');
   s.addEventListener('touchstart',e=>{y0=(e.target.closest('.sbar,.grabber')&&s.scrollTop===0)?e.touches[0].clientY:null},{passive:true});
   s.addEventListener('touchend',e=>{if(y0!=null&&e.changedTouches[0].clientY-y0>80)s.close();y0=null},{passive:true})})();
-if(!TABS.some(t=>t[0]===S.tab))S.tab='rec';
+/* モードの切り替え：読み込み画面をはさんで、タブと最初の画面ごと入れ替える */
+function switchMode(){
+  const to=SELF()?'pro':'self',L=$('modeLoad');$('modeMsg').textContent=MNAME[to]+'に切り替えています';L.hidden=false;
+  setTimeout(()=>{S.mode=to;S.tab=TABSET[to][0][0];V.screen='list';V.date=dkey(new Date());save();render();window.scrollTo(0,0);
+    setTimeout(()=>{L.hidden=true},500)},400);
+}
+if(!TABSET[S.mode].some(t=>t[0]===S.tab))S.tab=TABSET[S.mode][0][0];
 V.screen=S.tab==='rcp'?'rcplist':'list';
 render();
 if(Sync.on()){Sync.pull();setInterval(()=>{if(!document.hidden&&Sync.idle())Sync.pull()},60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Sync.idle())Sync.pull()})}
