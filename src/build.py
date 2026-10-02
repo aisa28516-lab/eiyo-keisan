@@ -1,20 +1,8 @@
 import json, re, collections, os
 D = os.path.dirname(os.path.abspath(__file__))
-rows = json.load(open(f'{D}/raw.json'))
-# 表12（PDF 39〜63ページ）：食品番号で始まる行の末尾の数値が重量変化率。行末が「-」で直前行に数値だけがある場合はそれを使う
-RATES = {}
-pages = open(f'{D}/all.txt', encoding='utf-8').read().split('\f')
-ids = {r[1] for r in rows}
-for pi in range(38, 63):
-    prev = ''
-    for ln in pages[pi].split('\n'):
-        m = re.match(r'^\s*(\d{5})\s+\S', ln)
-        if m and m.group(1) in ids:
-            m2 = re.search(r'(\d+(?:\.\d+)?)\s*$', ln)
-            if m2: RATES[m.group(1)] = float(m2.group(1))
-            elif re.search(r'\S\s{20,}(\d+)\s*$', prev) and not re.match(r'^\s*\d{5}\s', prev):
-                RATES[m.group(1)] = float(re.search(r'(\d+)\s*$', prev).group(1))
-        if ln.strip(): prev = ln
+rows = json.load(open(f'{D}/data/raw.json'))
+# 重量変化率：成分表 第1章 表12（PDF 39〜63ページ）から取り出した値
+RATES = json.load(open(f'{D}/data/rates.json'))
 assert RATES['01088'] == 210 and RATES['06268'] == 70 and RATES['11287'] == 62 and RATES['10153'] == 73 and RATES['01039'] == 180, RATES.get('10153')
 print('表12から読んだ重量変化率:', len(RATES))
 COOK = {'ゆで','焼き','水煮','油いため','蒸し','電子レンジ調理','ソテー','素揚げ','天ぷら','フライ','から揚げ','とんかつ','目玉焼き','いり','ポーチドエッグ'}
@@ -104,7 +92,7 @@ for ln in open(f'{D}/aliases.txt', encoding='utf-8'):
     for x in ids: assert x in idx, (ln, x)
     for w in words.split('|'): al.append([w, [idx[x] for x in ids]])
 n_manual = len(al)
-bm = json.load(open(f'{D}/betsumei.json'))
+bm = json.load(open(f'{D}/data/betsumei.json'))
 seen = collections.OrderedDict()
 for fid, ws in bm.items():
     for w in ws:
@@ -114,7 +102,7 @@ for fid, ws in bm.items():
             if 1 < len(q) <= 14: seen.setdefault(q, []).append(idx[fid])
 al += [[w, v] for w, v in seen.items()]
 kj = {}
-for kana, ks in json.load(open(f'{D}/kanji_heads.json')):
+for kana, ks in json.load(open(f'{D}/data/kanji_heads.json')):
     for k in re.split(r'[、,]', ks):
         k = k.strip()
         if k and re.search(r'[一-龥]', k) and k != kana: kj.setdefault(k, kana)
@@ -122,7 +110,7 @@ kj = sorted(kj.items(), key=lambda x: -len(x[0]))
 print('辞書: 手作業', n_manual, '語／別名', len(seen), '語／漢字表記', len(kj), '語')
 # ---- 目安量 ----
 # 容量→重さ：成分表の備考「100 mL：○ g」。個数など：省庁の公開資料に数値があるものだけ（SRC が出典）
-dens = {idx[k]: v for k, v in json.load(open(f'{D}/density.json')).items() if k in idx}
+dens = {idx[k]: v for k, v in json.load(open(f'{D}/data/density.json')).items() if k in idx}
 SRC = ['文部科学省「日本食品標準成分表（八訂）増補2023年」備考欄の容量と重さの換算',
        '厚生労働省 標準的な健診・保健指導プログラム 学習教材「アルコール飲料の容量」',
        '農林水産省「食事バランスガイド」サービング数計算早見表',
@@ -166,51 +154,25 @@ print('目安量: 容量換算つき', len(dens), '食品／個数などの目�
 data = json.dumps({'f': foods, 'g': groups, 'a': al, 'k': kj, 'd': dens, 'p': ports, 'src': SRC}, ensure_ascii=False, separators=(',', ':'))
 assert '</' not in data
 html = open(f'{D}/template.html', encoding='utf-8').read().replace('/*DATA*/null', data)
-open(f'{D}/eiyo-keisan.html', 'w', encoding='utf-8').write(html)
-open(f'{D}/local.html', 'w', encoding='utf-8').write('<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>body{margin:0}[hidden]{display:none!important}</style></head><body>' + html + '</body></html>')
-print(len(foods), 'foods', len(groups), 'groups', len(html) // 1024, 'KB', collections.Counter(len(g['m']) for g in groups))
-
-# ---- 公開用（GitHub Pages）：site/ 一式 ----
-site = f'{D}/site'; os.makedirs(site, exist_ok=True)
-head = '''<!doctype html><html lang="ja"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="robots" content="noindex,nofollow">
-<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="栄養価計算"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" href="icon-192.png"><link rel="manifest" href="manifest.webmanifest">
-<style>:root{color-scheme:light dark;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
-<script src="config.js"></script></head><body>'''
-open(f'{site}/index.html', 'w', encoding='utf-8').write(head + html + '</body></html>')
-if not os.path.exists(f'{site}/config.js'):
-    open(f'{site}/config.js', 'w', encoding='utf-8').write('// 同期の接続先（Firebase のプロジェクト設定から）。空のあいだは同期なしで動きます。\nwindow.EIYO_CONFIG = { apiKey: "", projectId: "" };\n')
-open(f'{site}/manifest.webmanifest', 'w', encoding='utf-8').write(json.dumps({'name': '栄養価計算', 'short_name': '栄養価計算', 'start_url': './', 'scope': './', 'display': 'standalone', 'background_color': '#ffffff', 'theme_color': '#ffffff', 'lang': 'ja', 'icons': [{'src': 'icon-192.png', 'sizes': '192x192', 'type': 'image/png'}, {'src': 'icon-512.png', 'sizes': '512x512', 'type': 'image/png'}]}, ensure_ascii=False, indent=1))
-import hashlib
+ROOT = os.path.dirname(D)                              # リポジトリの直下＝公開されるフォルダ
+OUT = f'{D}/.out'; os.makedirs(OUT, exist_ok=True)     # 確認用の出力（リポジトリには入れない）
+open(f'{OUT}/eiyo-keisan.html', 'w', encoding='utf-8').write(html)   # Claude のアーティファクト用
+head = ('<!doctype html><html lang="ja"><head><meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
+        '<meta name="robots" content="noindex,nofollow">\n'
+        '<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">\n'
+        '<meta name="apple-mobile-web-app-title" content="栄養価計算"><meta name="apple-mobile-web-app-status-bar-style" content="default">\n'
+        '<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" href="icon-192.png"><link rel="manifest" href="manifest.webmanifest">\n'
+        '<style>:root{color-scheme:light dark;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>\n')
+open(f'{OUT}/local.html', 'w', encoding='utf-8').write(head + '</head><body>' + html + '</body></html>')   # 同期なしの確認用
+open(f'{ROOT}/index.html', 'w', encoding='utf-8').write(head + '<script src="config.js"></script></head><body>' + html + '</body></html>')
+# 同期ありの確認用（接続先はダミー。tests/sync.py が通信を偽の応答に差し替える）
+os.makedirs(f'{OUT}/sitetest', exist_ok=True)
+import shutil, hashlib
+for f in ['index.html', 'manifest.webmanifest', 'sw.js', 'icon-180.png', 'icon-192.png']:
+    shutil.copy(f'{ROOT}/{f}', f'{OUT}/sitetest/{f}')
+open(f'{OUT}/sitetest/config.js', 'w').write('window.EIYO_CONFIG = { apiKey: "TESTKEY", projectId: "testproj" };\n')
 ver = hashlib.sha1(html.encode()).hexdigest()[:10]
-open(f'{site}/sw.js', 'w', encoding='utf-8').write('''// 電波がないときも開けるようにする。通信できるときは常に最新を取りに行く。
-const C = 'eiyo-%s';
-self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(C).then(c => c.addAll(['./', 'config.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png']))) });
-self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k)))).then(() => self.clients.claim())));
-self.addEventListener('fetch', e => {
-  const u = new URL(e.request.url);
-  if (e.request.method !== 'GET' || u.origin !== location.origin) return;
-  e.respondWith(fetch(e.request).then(r => { const cp = r.clone(); caches.open(C).then(c => c.put(e.request, cp)); return r }).catch(() => caches.match(e.request, { ignoreSearch: true })));
-});
-''' % ver)
-open(f'{site}/firestore.rules', 'w', encoding='utf-8').write('''rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // 自分のデータだけ読み書きできる
-    match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-    }
-  }
-}
-''')
-from PIL import Image, ImageDraw
-for n in (180, 192, 512):
-    im = Image.new('RGB', (n, n), (0, 136, 255)); d = ImageDraw.Draw(im); u = n / 12
-    for k, w in enumerate((7.5, 5.5, 3.5)):
-        y = (3.2 + k * 2.2) * u
-        d.rounded_rectangle([2.2 * u, y, (2.2 + w) * u, y + 1.3 * u], radius=0.65 * u, fill=(255, 255, 255))
-    im.save(f'{site}/icon-{n}.png')
-print('site:', sorted(os.listdir(site)), os.path.getsize(f'{site}/index.html') // 1024, 'KB')
+sw = open(f'{ROOT}/sw.js', encoding='utf-8').read()
+open(f'{ROOT}/sw.js', 'w', encoding='utf-8').write(re.sub(r"const C = 'eiyo-[0-9a-f]+';", f"const C = 'eiyo-{ver}';", sw))
+print(len(foods), 'foods', len(groups), 'groups', len(html) // 1024, 'KB', 'version', ver)
