@@ -435,7 +435,7 @@ function itemRow(it){
   if(it.tmp)parts.push('調理法は仮');
   const nt=[c.note,it.pn].filter(Boolean).join('／');
   const del=side=>`<button class="swdel ${side}" data-rowdel="${it.n}" tabindex="-1" aria-label="${esc(itemName(it))}を削除">${TRASH}<span class="footnote">削除</span></button>`;
-  return `<div class="swipe">${del('l')}${del('t')}<button class="row" data-edit="${it.n}"><span class="grow"><span class="wrap">${esc(itemName(it))}</span><span class="subhead sec wrap">${esc(parts.join('　'))}${nt?'<br>'+esc(nt):''}</span></span></button></div>`;
+  return `<div class="swipe">${del('t')}<button class="row" data-edit="${it.n}"><span class="grow"><span class="wrap">${esc(itemName(it))}</span><span class="subhead sec wrap">${esc(parts.join('　'))}${nt?'<br>'+esc(nt):''}</span></span></button></div>`;
 }
 /* 食材を足す欄。key＝追加先（メニュー番号、new-食事番号、recipe） */
 const addField=(key,ph)=>`<input class="input add" type="search" data-add="${key}" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="食材名と量" placeholder="${ph}"><div data-sug="${key}"></div><div class="footnote sec note" role="status" data-st="${key}" hidden style="padding-block:6px"></div>`;
@@ -804,7 +804,7 @@ document.addEventListener('click',e=>{
   else if(b.id==='wipe')ask('すべてのデータを消去しますか？','記録、レシピ、マイ食品、目安量がすべて消えます。',[{l:'消去',d:1,f:()=>{S={tab:'set',seq:2,records:[],recipes:[],custom:[],portions:{},learned:{},updated:0}}},CANCEL]);
   else if(ds.a!=null){const x=$('alert')._b[+ds.a];$('alert').close();if(x.f){x.f();save();render()}}
 });
-/* 行のスワイプ：左右どちらに動かしても、動かした側の反対の端に削除ボタンが出る。半分以上引くと開いたままになる */
+/* 行のスワイプ：左に動かすと右端に削除ボタンが出る（iOS 標準と同じ向き）。半分以上引くと開いたままになる */
 const Swipe={justMoved:false,justClosed:false,
   closeAll(){const o=document.querySelectorAll('.swipe.open-l,.swipe.open-r');o.forEach(x=>x.classList.remove('open-l','open-r'));return o.length>0}};
 (()=>{let el=null,x0=0,y0=0,base=0,dx=0,on=false;const W=88;
@@ -814,7 +814,7 @@ const Swipe={justMoved:false,justClosed:false,
     x0=e.touches[0].clientX;y0=e.touches[0].clientY;base=el.classList.contains('open-l')?-W:el.classList.contains('open-r')?W:0;dx=0;on=false},{passive:true});
   document.addEventListener('touchmove',e=>{if(!el)return;const mx=e.touches[0].clientX-x0,my=e.touches[0].clientY-y0;
     if(!on){if(Math.abs(mx)<10||Math.abs(mx)<Math.abs(my)){if(Math.abs(my)>10)el=null;return}on=true;el.classList.add('drag')}
-    dx=Math.max(-W,Math.min(W,base+mx));el.classList.toggle('drag-l',dx<0);el.classList.toggle('drag-r',dx>0);
+    dx=Math.max(-W,Math.min(0,base+mx));el.classList.toggle('drag-l',dx<0);el.classList.toggle('drag-r',dx>0);
     el.querySelector('.row').style.transform='translateX('+dx+'px)'},{passive:true});
   const end=()=>{if(!el)return;const r=el.querySelector('.row');if(on){Swipe.justMoved=true;r.style.transform='';el.classList.remove('drag','drag-l','drag-r','open-l','open-r');
       if(dx<=-W/2)el.classList.add('open-l');else if(dx>=W/2)el.classList.add('open-r');setTimeout(()=>Swipe.justMoved=false,350)}el=null;on=false};

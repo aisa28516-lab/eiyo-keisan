@@ -23,10 +23,11 @@ async def main():
         await pg.locator('.swipe.open-l .swdel.t').tap(); await pg.wait_for_timeout(200)
         n1=await pg.locator('.swipe').count(); print('rows',n0,'->',n1)
         await swipe('.swipe>.row',120)
-        print('right open:',await pg.locator('.swipe.open-r').count())
+        print('right swipe opens nothing:',await pg.locator('.swipe.open-r,.swipe.open-l').count()==0)
+        await swipe('.swipe>.row',-120)
         await pg.screenshot(path='/home/claude/eiyo-keisan/src/.out/swipe-right.png')
         await pg.locator('.swipe>.row').nth(1).tap(); await pg.wait_for_timeout(400)
-        print('after tap elsewhere open:',await pg.locator('.swipe.open-r').count(),'sheet:',await pg.locator('dialog[open]').count())
+        print('after tap elsewhere open:',await pg.locator('.swipe.open-l').count(),'sheet:',await pg.locator('dialog[open]').count())
         assert await pg.locator('dialog[open]').count()==0
         await swipe('.swipe>.row',-30)
         print('short swipe open:',await pg.locator('.swipe.open-l,.swipe.open-r').count())
