@@ -13,13 +13,37 @@
 
 列：メニュー名、サイズ、エネルギー(kcal)、たんぱく質(g)、脂質(g)、炭水化物(g)、食塩相当量(g)
 
-## 収録済み（2026-10-03）
-- すき家、なか卯（ゼンショーの栄養成分一覧表 PDF。同じ形式）
-- マクドナルド（公式サイトの栄養成分一覧表。同名で数値の違う行が2組あり、「一覧の1つ目／2つ目」として両方収録）
+## 道具
+`tools/extract.mjs`（公開先からブラウザで import できる）。`load(url)` で PDF の文字と座標を読み、表の形に合わせて次のどれかで組み立てる。
+- `flat`：1行に名前と数値が並ぶ表（松屋、モスバーガー）
+- `center`：メニュー名が結合セルの中央にある表（すき家、なか卯）
+- `grid`：罫線でメニューのセルを決める表（吉野家、はなまるうどん）
+- `table`：HTML の表（マクドナルド）
+どの方式でも、エネルギーの列にある数値の個数と、取り出した行数が一致することを確かめる。
 
-## これから（公式資料の場所を確認して順に追加）
-牛丼：吉野家、松屋／ファストフード：モスバーガー、ケンタッキー、ロッテリア、バーガーキング、サブウェイ、ミスタードーナツ
-定食・ファミレス：大戸屋、やよい軒、ガスト、サイゼリヤ、ジョイフル、デニーズ、ココス、ロイヤルホスト、びっくりドンキー
-麺・カレー・中華：丸亀製麺、はなまるうどん、CoCo壱番屋、餃子の王将、リンガーハット、日高屋
-寿司：スシロー、くら寿司、はま寿司、かっぱ寿司／カフェ：スターバックス、ドトール、タリーズ、コメダ珈琲店
-コンビニ：セブン-イレブン、ファミリーマート、ローソン（商品の入れ替わりが速いので、定番品から）
+## 収録済み（2026-10-03）
+| 店 | 出典 | 資料の日付 | 備考 |
+|---|---|---|---|
+| すき家 | https://images.zensho.co.jp/materials/sukiya/allergen/nutrition.pdf | 2026年9月29日 | |
+| 吉野家 | https://www.yoshinoya.com/pdf/allergy/ | 2026年10月1日 | サイズ欄が複数行にまたがる C&C のドリンクとブルーシールは、どの行にどのサイズが当たるか確定できないため除外 |
+| 松屋 | https://www.matsuyafoods.co.jp/matsuya/pdf/260929_nutritional_matsuya.pdf | 2026年9月29日 | 数値が幅で書かれた2品（マミー、生ジョッキ缶）は除外 |
+| なか卯 | https://images.zensho.co.jp/materials/nakau/allergen/nutrition.pdf | 2026年9月30日 | |
+| マクドナルド | https://www.mcdonalds.co.jp/quality/allergy_Nutrition/nutrient/ | 2026年9月30日 | 同名で数値の違う行が2組あり「一覧の1つ目／2つ目」として両方収録 |
+| モスバーガー | https://www.mos.jp/menu/pdf/nutrition.pdf | 2026年10月1日 | 同名で数値の違う行は「モスカフェ専用」「中京エリア」「一覧の2つ目」と区別 |
+| ケンタッキー | https://www.kfc.co.jp/food_information （PDF は外部CDN） | 2026年9月11日 | |
+| CoCo壱番屋 | https://www.ichibanya.co.jp/menu/pdf/nutrition.pdf | 2026年10月1日 | ＊の注記（ライス量など）をサイズ欄に入れている |
+| はなまるうどん | https://www.hanamaruudon.com/assets/pdf/allergy.pdf | 2026年10月1日 | レギュラーメニュー（2〜5ページ）だけ。季節メニューと吉野家コラボ店メニューは未収録 |
+
+## これから（公式資料の場所は 2026-10-03 に調査。5項目そろった一覧があるもの）
+- PDF：サブウェイ https://subway.co.jp/documents/pdf/eiyo.pdf ／ミスタードーナツ https://www.misterdonut.jp/m_menu/eiyou/eiyou.pdf ／フレッシュネスバーガー https://www.freshnessburger.co.jp/pdf/seibun.pdf ／バーガーキング（入口ページで最新版を確認してから）
+- PDF：ジョイフル https://www.joyfull.co.jp/cal_pdf/cal.pdf ／デニーズ https://www.dennys.jp/safety/pdf/nutritive_value_A.pdf ／ロイヤルホスト（入口 https://www.royalhost.jp/safety/product_infomation.html ）／びっくりドンキー（入口で最新版を確認）／ジョリーパスタ https://images.zensho.co.jp/materials/jolly-pasta/allergen/nutrition_facts.pdf
+- PDF：天丼てんや https://www.tenya.co.jp/pdf/allergen-shop.pdf ／松のや（入口 https://www.matsuyafoods.co.jp/matsunoya/safety/allergen.html ）／かっぱ寿司 https://www.kappasushi.jp/master_data/pdf/info_element.pdf ／タリーズ https://www.tullys.co.jp/menu/pdf/food.pdf ・drink.pdf
+- HTML の表：やよい軒（都道府県別 https://www.yayoiken.com/menu/allergy.html ）／ほっともっと（都道府県別）／リンガーハット https://www.ringerhut.jp/quality/allergy-nutrition_value/ ／ファミリーマート（カテゴリ別 https://www.family.co.jp/goods/safety.html ）
+- ロッテリア：PDF の場所は分かったが、ブラウザからの取得が 403 で読めなかった
+
+## 収録できない・保留
+- 炭水化物の列がない（糖質と食物繊維）：大戸屋
+- 一覧がなく商品ごとのページだけ：スターバックス、ドトール、幸楽苑、ココス、セブン-イレブン、ローソン
+- 項目が足りない：日高屋（エネルギーと食塩だけ）、くら寿司・はま寿司・コメダ珈琲店（エネルギーだけ）
+- 栄養成分の公開が見つからない：ガスト、バーミヤン、ジョナサン、サイゼリヤ、餃子の王将、かつや、スシロー
+- 未確認：丸亀製麺、オリジン弁当

@@ -2,15 +2,31 @@
  {
   "id": "sukiya",
   "name": "すき家",
-  "cat": "牛丼",
+  "cat": "牛丼・丼",
   "src": "https://images.zensho.co.jp/materials/sukiya/allergen/nutrition.pdf",
+  "updated": "2026年9月29日",
+  "fetched": "2026-10-03"
+ },
+ {
+  "id": "yoshinoya",
+  "name": "吉野家",
+  "cat": "牛丼・丼",
+  "src": "https://www.yoshinoya.com/pdf/allergy/",
+  "updated": "2026年10月1日",
+  "fetched": "2026-10-03"
+ },
+ {
+  "id": "matsuya",
+  "name": "松屋",
+  "cat": "牛丼・丼",
+  "src": "https://www.matsuyafoods.co.jp/matsuya/pdf/260929_nutritional_matsuya.pdf",
   "updated": "2026年9月29日",
   "fetched": "2026-10-03"
  },
  {
   "id": "nakau",
   "name": "なか卯",
-  "cat": "丼・うどん",
+  "cat": "牛丼・丼",
   "src": "https://images.zensho.co.jp/materials/nakau/allergen/nutrition.pdf",
   "updated": "2026年9月30日",
   "fetched": "2026-10-03"
@@ -24,19 +40,35 @@
   "fetched": "2026-10-03"
  },
  {
-  "id": "yoshinoya",
-  "name": "吉野家",
-  "cat": "牛丼",
-  "src": "https://www.yoshinoya.com/pdf/allergy/",
+  "id": "mos",
+  "name": "モスバーガー",
+  "cat": "ファストフード",
+  "src": "https://www.mos.jp/menu/pdf/nutrition.pdf",
   "updated": "2026年10月1日",
   "fetched": "2026-10-03"
  },
  {
-  "id": "matsuya",
-  "name": "松屋",
-  "cat": "牛丼",
-  "src": "https://www.matsuyafoods.co.jp/matsuya/pdf/260929_nutritional_matsuya.pdf",
-  "updated": "2026年9月29日",
+  "id": "kfc",
+  "name": "ケンタッキーフライドチキン",
+  "cat": "ファストフード",
+  "src": "https://www.kfc.co.jp/food_information",
+  "updated": "2026年9月11日",
+  "fetched": "2026-10-03"
+ },
+ {
+  "id": "cocoichi",
+  "name": "CoCo壱番屋",
+  "cat": "カレー・うどん",
+  "src": "https://www.ichibanya.co.jp/menu/pdf/nutrition.pdf",
+  "updated": "2026年10月1日",
+  "fetched": "2026-10-03"
+ },
+ {
+  "id": "hanamaru",
+  "name": "はなまるうどん",
+  "cat": "カレー・うどん",
+  "src": "https://www.hanamaruudon.com/assets/pdf/allergy.pdf",
+  "updated": "2026年10月1日",
   "fetched": "2026-10-03"
  }
 ]
