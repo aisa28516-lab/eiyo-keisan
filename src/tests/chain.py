@@ -12,7 +12,7 @@ async def main():
         for q in ['すき家 牛丼 並','牛丼','ごはん 150','すき家 からあげ 2']:
             print(q,'=>',await pg.evaluate("q=>search(q).out.map(o=>o.ch!=null?extName(extOf(o.ch,o.mi)):o.dish||o.cu||dispName(o.idx))",q))
         await pg.fill('[data-add="new-1"]','すき家 牛丼 並'); await pg.wait_for_selector('[data-sug="new-1"] [data-pick]'); await pg.press('[data-add="new-1"]','Enter')
-        await pg.click('[data-chopen="2"]'); await pg.wait_for_selector('dialog[open] #chq'); await pg.fill('#chq','とん汁'); await pg.wait_for_timeout(100)
+        await pg.click('[data-chopen="2"]'); await pg.wait_for_selector('dialog[open] [data-chsel]'); await pg.screenshot(path=f'{OUT}/chain-stores.png'); await pg.click('[data-chsel="0"]'); await pg.wait_for_selector('dialog[open] #chq'); await pg.fill('#chq','とん汁'); await pg.wait_for_timeout(100)
         await pg.screenshot(path=f'{OUT}/chain-sheet.png')
         await pg.click('[data-chadd]'); print('msg',await pg.inner_text('#chMsg')); await pg.click('#done')
         print(await pg.evaluate("JSON.stringify(curDay().menus.map(m=>[m.meal,m.name,m.items.map(i=>[itemName(i),i.g,Math.round(calc(i).v[0])])]))"))

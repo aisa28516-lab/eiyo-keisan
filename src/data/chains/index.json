@@ -6,5 +6,21 @@
   "src": "https://images.zensho.co.jp/materials/sukiya/allergen/nutrition.pdf",
   "updated": "2026年9月29日",
   "fetched": "2026-10-03"
+ },
+ {
+  "id": "nakau",
+  "name": "なか卯",
+  "cat": "丼・うどん",
+  "src": "https://images.zensho.co.jp/materials/nakau/allergen/nutrition.pdf",
+  "updated": "2026年9月30日",
+  "fetched": "2026-10-03"
+ },
+ {
+  "id": "mcdonalds",
+  "name": "マクドナルド",
+  "cat": "ファストフード",
+  "src": "https://www.mcdonalds.co.jp/quality/allergy_Nutrition/nutrient/",
+  "updated": "2026年9月30日",
+  "fetched": "2026-10-03"
  }
 ]
