@@ -151,7 +151,16 @@ for ids_, label, amt, keys, t, w, v, src in PSPEC:
         if isinstance(amt, tuple): assert idx[x] in dens, (x, label)
         ports.setdefault(idx[x], []).append([label, amt[1] if isinstance(amt, tuple) else amt, 1 if isinstance(amt, tuple) else 0, keys, t or '', w, idx[v] if v else -1, src])
 print('目安量: 容量換算つき', len(dens), '食品／個数などの目安', len(ports), '食品')
-data = json.dumps({'f': foods, 'g': groups, 'a': al, 'k': kj, 'd': dens, 'p': ports, 'src': SRC}, ensure_ascii=False, separators=(',', ':'))
+# チェーン店のメニュー（各社が公表している栄養成分。src/chains/pull.py で保存した表）
+CH = []
+_ci = f'{D}/data/chains/index.json'
+if os.path.exists(_ci):
+    for c in json.load(open(_ci, encoding='utf-8')):
+        _r = [l.rstrip('\n').split('\t') for l in open(f"{D}/data/chains/{c['id']}.tsv", encoding='utf-8') if l.strip()]
+        CH.append({'n': c['name'], 'cat': c['cat'], 'src': c['src'], 'upd': c['updated'], 'got': c['fetched'],
+                   'm': [[r[0], r[1]] + [float(x) for x in r[2:7]] for r in _r]})
+print('チェーン店:', [(c['n'], len(c['m'])) for c in CH])
+data = json.dumps({'c': CH, 'f': foods, 'g': groups, 'a': al, 'k': kj, 'd': dens, 'p': ports, 'src': SRC}, ensure_ascii=False, separators=(',', ':'))
 assert '</' not in data
 html = open(f'{D}/template.html', encoding='utf-8').read().replace('/*DATA*/null', data)
 ROOT = os.path.dirname(D)                              # リポジトリの直下＝公開されるフォルダ
