@@ -197,7 +197,7 @@ let S={tab:'rec',seq:1,records:[],recipes:[],custom:[],portions:{},learned:{},up
 const dkey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const dparse=k=>{const a=k.split('-');return new Date(+a[0],+a[1]-1,+a[2])};
 const dlabel=k=>dparse(k).toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'});
-const fixS=()=>{if(S.mode!=='self')S.mode='pro';if(!S.me||typeof S.me!=='object')S.me={};S.me.target=S.me.target||{};S.me.days=S.me.days||{}};
+const fixS=()=>{if(S.mode!=='self')S.mode='pro';if(!S.me||typeof S.me!=='object')S.me={};S.me.target=S.me.target||{};S.me.days=S.me.days||{};if(!Array.isArray(S.fridge))S.fridge=[]};
 const SELF=()=>S.mode==='self';
 let V={screen:'list',rec:null,day:0,res:-1,rcp:null,per:1,date:dkey(new Date())};   /* 画面の状態（保存しない） */
 let MODE='i';
@@ -454,12 +454,12 @@ function itemRow(it){
 const addField=(key,ph)=>`<input class="input add" type="search" data-add="${key}" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="食材名と量" placeholder="${ph}"><div data-sug="${key}"></div><div class="footnote sec note" role="status" data-st="${key}" hidden style="padding-block:6px"></div>`;
 
 /* ---------- 画面 ---------- */
-const TABSET={pro:[['rec','記録'],['rcp','レシピ'],['my','マイ食品'],['set','設定']],self:[['day','食事'],['rcp','レシピ'],['my','マイ食品'],['set','設定']]};
+const TABSET={pro:[['rec','記録'],['rcp','レシピ'],['my','マイ食品'],['set','設定']],self:[['day','食事'],['fr','冷蔵庫'],['rcp','レシピ'],['my','マイ食品'],['set','設定']]};
 const MNAME={pro:'栄養士モード',self:'自分用モード'};
 function render(){
   $('tabs').innerHTML=TABSET[S.mode].map(([k,l])=>`<button data-tab="${k}"${S.tab===k?' aria-current="page"':''}>${l}</button>`).join('');
-  const f={day:V.screen==='result'?viewResult:viewSelf,rec:V.screen==='edit'?viewEdit:V.screen==='result'?viewResult:viewList,rcp:V.screen==='rcpedit'?viewRcpEdit:V.screen==='rcpres'?viewRcpResult:viewRcpList,my:viewMy,set:viewSet}[S.tab];
-  MODE=S.tab==='rcp'?'r':'i';
+  const f={fr:viewFridge,day:V.screen==='result'?viewResult:viewSelf,rec:V.screen==='edit'?viewEdit:V.screen==='result'?viewResult:viewList,rcp:V.screen==='rcpedit'?viewRcpEdit:V.screen==='rcpres'?viewRcpResult:viewRcpList,my:viewMy,set:viewSet}[S.tab];
+  MODE=S.tab==='rcp'||S.tab==='fr'?'r':'i';
   $('view').innerHTML=f();
 }
 const emptyNote=t=>`<p class="sec note">${t}</p>`;
@@ -576,6 +576,54 @@ function viewRcpResult(){
   <div class="stack"><section><div class="ghead"><span class="footnote sec">ミネラル</span></div><div class="group">${nutRows(v,null,[6,7,8,9,10,11])}</div></section>
   <section><div class="ghead"><span class="footnote sec">ビタミン・その他</span></div><div class="group">${nutRows(v,null,[12,13,14,15,16,17,18,19])}</div></section>${groupHTML(gg)}</div></div>${sourceNote()}`;
 }
+/* ---------- 冷蔵庫（自分用モード） ---------- */
+const daysLeft=k=>Math.round((dparse(k)-dparse(dkey(new Date())))/864e5);
+const SOON=3;   /* 「早めに使う」に入れる日数（仮。根拠のある数値ではなく、並べ方のための区切り） */
+function fridgeRow(it){
+  const left=it.use?daysLeft(it.use):null;
+  const badge=left==null?'':left<0?`<span class="val subhead" style="color:var(--red)">${-left}日過ぎた</span>`:left===0?`<span class="val subhead" style="color:var(--red)">今日まで</span>`:`<span class="val subhead${left<=SOON?'':' sec'}"${left<=SOON?' style="color:var(--orange)"':''}>あと${left}日</span>`;
+  const sub=[itemAmount(it)];if(it.bought)sub.push('買った日 '+dparse(it.bought).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}));
+  return `<div class="swipe"><button class="swdel t" data-rowdel="${it.n}" tabindex="-1" aria-label="${esc(itemName(it))}を削除">${TRASH}<span class="footnote">削除</span></button><button class="row" data-edit="${it.n}"><span class="grow"><span class="wrap">${esc(itemName(it))}</span><span class="subhead sec wrap">${esc(sub.join('　'))}</span></span>${badge}</button></div>`;
+}
+function viewFridge(){
+  const L=S.fridge.slice().sort((a,b)=>(a.use||'9999').localeCompare(b.use||'9999')||(a.bought||'').localeCompare(b.bought||''));
+  const sec=(t,items,foot)=>items.length?`<section><div class="ghead"><span class="footnote sec">${t}</span><span class="footnote sec num">${items.length}品</span></div><div class="group">${items.map(fridgeRow).join('')}</div>${foot?`<div class="gfoot footnote sec">${foot}</div>`:''}</section>`:'';
+  const late=L.filter(x=>x.use&&daysLeft(x.use)<0),soon=L.filter(x=>x.use&&daysLeft(x.use)>=0&&daysLeft(x.use)<=SOON),later=L.filter(x=>x.use&&daysLeft(x.use)>SOON),none=L.filter(x=>!x.use);
+  return `<h1 class="large">冷蔵庫</h1><div class="stack narrow">
+  <div class="group">${addField('fridge','＋ 食材を追加（例：キャベツ 300）')}</div>
+  ${L.length?'':emptyNote('買った食材と量を入力します。行をタップすると、量と「使い切りたい日」を変えられます。使い切りたい日が近いものほど上に並びます。')}
+  ${sec('使い切りたい日を過ぎた',late)}${sec('早めに使う（'+SOON+'日以内）',soon)}${sec('まだ先',later)}${sec('日付なし',none,'行をタップして「使い切りたい日」を入れると、近い順に並びます。')}
+  <section><div class="ghead"><span class="footnote sec">まとめて追加</span></div><div class="stack" style="gap:8px">
+  <textarea class="input" id="fIn" aria-label="まとめて追加する食材" placeholder="1行に1つ。例：&#10;キャベツ 300&#10;鶏むね肉 250 | 2026-10-06&#10;卵 6個"></textarea>
+  <button class="btn gray block" id="fImp">この内容を冷蔵庫に追加</button><p class="footnote sec note" id="fMsg" role="status"></p></div>
+  <div class="gfoot footnote sec">「食材名 量」を1行ずつ書きます。「 | 日付」を付けると使い切りたい日も入ります。買い物の写真を Claude に送って、この形の文章にしてもらい、貼り付けることもできます。</div></section></div>`;
+}
+function fridgeImport(){
+  const lines=$('fIn').value.split('\n').map(x=>x.trim()).filter(Boolean),bad=[];let n=0;
+  lines.forEach(line=>{const [a,b]=line.split('|').map(x=>x.trim()),R=search(a),o=R.out.find(x=>!x.dish);
+    const use=b&&/^\d{4}-\d{1,2}-\d{1,2}$/.test(b.normalize('NFKC'))?dkey(dparse(b.normalize('NFKC'))):'';
+    if(!o||(b&&!use)){bad.push(line);return}
+    const qn=R.P.qty?R.P.qty.num:null;
+    const it=o.cu?{n:S.seq++,cu:o.cu,g:qn!=null?qn:1}:{n:S.seq++,id:F[o.idx][0],g:null,t:'b',r:false};
+    if(!o.cu){const q=resolveQty(R.P.qty,o.idx);if(q)applyPortion(it,q);else if(R.P.qty){bad.push(line);return}}
+    it.bought=dkey(new Date());it.use=use;S.fridge.push(it);n++});
+  save();render();$('fIn').value=bad.join('\n');
+  $('fMsg').textContent=n+'件を追加しました。'+(bad.length?'読み取れなかった'+bad.length+'行を欄に残しました。食材名や量の書き方を変えて、もう一度試してください。':'');
+}
+function drawFridge(){
+  const it=cur,i=it.cu?-1:IDX[it.id],PL=i>=0?portionsFor(i):[],c=it.cu&&S.custom.find(x=>x.id===it.cu),unit=c&&c.basis==='u'?(c.unit||'1食')+'の数':'g';
+  const srcs=[...new Set(PL.filter(p=>p.src!=null).map(p=>p.src))];
+  $('sheet').innerHTML=sheetShell(itemName(it),`
+  <div class="field"><label class="footnote sec" for="amt">残っている量（${esc(unit)}）</label><input class="input num" id="amt" inputmode="decimal" placeholder="例：300" value="${it.g==null?'':it.g}">
+  ${it.pl?`<span class="footnote sec flabel">${esc(it.pl)} ＝ ${it.g} g</span>`:''}</div>
+  ${PL.length?`<div class="field"><span class="footnote sec flabel">目安量から選ぶ</span><div class="chips">${PL.map((p,k)=>`<button class="btn gray num" data-bp="${k}">${esc(p.l)}　${p.g} g</button>`).join('')}${it.g?'<button class="btn gray" id="halve">半分にする</button>':''}</div>
+  <span class="footnote sec flabel">同じボタンをもう一度押すと2つ分、3つ分になります。${srcs.length?'出典：'+srcs.map(x=>esc(D.src[x])).join('、')+'。':''}</span></div>`:''}
+  <div class="group"><div class="rowin" style="padding-inline-start:var(--pad)"><label for="f_b" style="flex:1;min-width:0">買った日</label><input class="input" style="flex:none;width:auto" type="date" id="f_b" value="${esc(it.bought||'')}"></div>
+  <div class="rowin" style="padding-inline-start:var(--pad)"><label for="f_u" style="flex:1;min-width:0">使い切りたい日</label><input class="input" style="flex:none;width:auto" type="date" id="f_u" value="${esc(it.use||'')}"></div></div>
+  <div class="field"><span class="footnote sec flabel">使い切りたい日を今日から数えて入れる</span><div class="chips">${[[1,'明日'],[3,'3日後'],[7,'1週間後'],[14,'2週間後']].map(([d,l])=>`<button class="btn gray" data-fuse="${d}">${l}</button>`).join('')}<button class="btn gray" data-fuse="">日付なし</button></div>
+  <span class="footnote sec flabel">日数は入力を楽にするためのボタンで、食品ごとの保存期間の目安ではありません。表示やパッケージを見て決めてください。</span></div>
+  <button class="btn destructive block gray" id="del">使い切った・捨てた（この行を削除）</button>`);
+}
 function viewMy(){
   const rows=S.custom.map(c=>`<button class="row" data-cu="${c.id}"><span class="grow"><span class="wrap">${esc(c.name)}</span><span class="subhead sec">${c.basis==='g'?'100 gあたり':esc(c.unit||'1食')+'あたり'}</span></span><span class="val num">${r0(c.v[0]||0)} kcal</span></button>`).join('');
   return `<h1 class="large">マイ食品</h1><div class="stack narrow"><button class="btn primary block" id="newCu">新しいマイ食品</button>
@@ -625,6 +673,7 @@ function renderSug(inp){
 }
 function targetList(key){   /* 追加先の配列を返す（必要ならメニューを作る） */
   if(key==='recipe')return{items:curRcp().items,key};
+  if(key==='fridge')return{items:S.fridge,key};
   const day=curDay();
   if(String(key).startsWith('new-')){const m={n:S.seq++,meal:+key.slice(4),name:'',items:[]};day.menus.push(m);return{items:m.items,key:m.n}}
   const m=day.menus.find(x=>x.n===+key);return m&&{items:m.items,key:m.n};
@@ -637,6 +686,7 @@ function pick(key,n){
     :{n:S.seq++,id:F[o.idx][0],g:null,t:MODE==='i'?'a':'b',r:false,tmp:o.tmp};
   if(!o.dish&&!o.cu){const R=resolveQty(P.qty,o.idx);if(R)applyPortion(it,R)}
   if(!o.dish&&!o.cu&&P.raw)S.learned[P.raw]=pkey(o.idx);
+  if(key==='fridge'){it.bought=dkey(new Date());it.use='';it.tmp=false}
   const rec=curRec();if(rec&&rec.example&&MODE==='i'){rec.example=false}
   T.items.push(it);save();render();
   const row=document.querySelector(`[data-edit="${it.n}"]`);if(row)row.classList.add('new');
@@ -644,7 +694,7 @@ function pick(key,n){
   if(it.g==null)openSheet(it.n);else{const inp=document.querySelector(`[data-add="${T.key}"]`);if(inp)inp.focus()}
 }
 function findItem(n){
-  const lists=S.tab==='rcp'?[curRcp()&&curRcp().items]:(curDay()?curDay().menus.map(m=>m.items):[]);
+  const lists=S.tab==='fr'?[S.fridge]:S.tab==='rcp'?[curRcp()&&curRcp().items]:(curDay()?curDay().menus.map(m=>m.items):[]);
   for(const l of lists){if(!l)continue;const k=l.findIndex(x=>x.n===n);if(k>=0)return{l,k}}
   return null;
 }
@@ -654,11 +704,12 @@ let cur=null,sheetKind='';
 const sheetShell=(title,body)=>`<div class="grabber" aria-hidden="true"></div><div class="sbar"><button class="btn" id="cancel">キャンセル</button><span class="headline wrap" id="sheetTitle" style="text-align:center">${esc(title)}</span><button class="btn" id="done" style="font-weight:600">完了</button></div><div class="sbody">${body}</div>`;
 function openSheet(n){const f=findItem(n);if(!f)return;cur=Object.assign({},f.l[f.k]);sheetKind='item';drawSheet();$('sheet').showModal();if(cur.g==null)setTimeout(()=>$('amt')&&$('amt').focus(),50)}
 function drawSheet(){
+  if(S.tab==='fr')return drawFridge();
   const it=cur;let body='';
   const frac=`<div class="field"><span class="footnote sec flabel" id="frlab">食べた割合</span><div class="seg" role="radiogroup" aria-labelledby="frlab">${segHTML('fr',[[1,'全部'],[0.5,'半分'],[0,'残した']],it.fr==null?1:it.fr)}</div><span class="footnote sec flabel">麺の汁やかけた調味料など、残した分を差し引きます。</span></div>`;
   if(it.dish||it.cu){
     const c=it.cu&&S.custom.find(x=>x.id===it.cu),unit=it.dish?'人分':c&&c.basis==='u'?(c.unit||'1食')+'の数':'g';
-    body=`<div class="field"><label class="footnote sec" for="amt">量（${esc(unit)}）</label><input class="input num" id="amt" inputmode="decimal" value="${it.g==null?'':it.g}"></div>`+(S.tab==='rec'?frac:'');
+    body=`<div class="field"><label class="footnote sec" for="amt">量（${esc(unit)}）</label><input class="input num" id="amt" inputmode="decimal" value="${it.g==null?'':it.g}"></div>`+((S.tab==='rec'||S.tab==='day')?frac:'');
   }else{
     const i=IDX[it.id],g=grp(i),c=calc(it),B=basis(it),used=B.v,pk=pkey(i),ps=S.portions[pk]||[],PL=portionsFor(i);
     const srcs=[...new Set(PL.filter(p=>p.src!=null).map(p=>p.src))];
@@ -673,7 +724,7 @@ function drawSheet(){
       if(isCooked(i))body+=`<div class="field"><span class="footnote sec flabel" id="tlab">重さを量ったタイミング</span><div class="seg" role="radiogroup" aria-labelledby="tlab">${segHTML('timing',[['b','調理前'],['a','調理後']],it.t)}</div>
         <span class="footnote sec flabel">${it.t==='a'?'「'+esc(F[i][9])+'」の成分値に、入力した重さを掛けます。':F[i][10]?'「'+esc(F[i][9])+'」の成分値に、入力した重さ × 重量変化率 '+F[i][10]+'% を掛けます。油や衣を使う調理では、その分も成分値に含まれています。':esc(B.note)+'します。'}</span></div>`;
     }
-    if(S.tab==='rec')body+=frac;
+    if(S.tab==='rec'||S.tab==='day')body+=frac;
     if(F[B.rf][2]>0)body+=`<div class="group"><label class="row"><span class="grow">皮・種・骨つきで量った<span class="subhead sec">廃棄率 ${F[B.rf][2]}% を差し引きます</span></span><input type="checkbox" switch id="refuse"${it.r?' checked':''}></label></div>`;
     body+=`<div class="group"><div class="row"><span class="grow">エネルギー</span><span class="val num" id="skcal">${r0(c.v[0])} kcal</span></div><div class="row"><span class="grow subhead sec wrap">${esc(F[used][1])}（食品番号 ${F[used][0]}）　100 gあたり ${F[used][3]} kcal</span></div></div>`;
     body+=`<div class="field"><label class="footnote sec" for="plabel">いまの量を目安量として登録</label><div class="inline"><input class="input" id="plabel" placeholder="例：茶碗1杯"><button class="btn gray" id="padd">登録</button></div>
@@ -683,7 +734,7 @@ function drawSheet(){
   $('sheet').innerHTML=sheetShell(itemName(it),body);
 }
 const numOf=id=>{const e=$(id);if(!e)return null;const v=parseFloat(String(e.value).normalize('NFKC'));return isFinite(v)&&v>=0?v:null};
-const readAmt=()=>{if($('amt'))cur.g=numOf('amt')};
+const readAmt=()=>{if($('amt'))cur.g=numOf('amt');if($('f_b'))cur.bought=$('f_b').value;if($('f_u'))cur.use=$('f_u').value};
 const numField=(id,label,val,ph)=>`<div class="rowin" style="padding-inline-start:var(--pad)"><label for="${id}" style="flex:1;min-width:0">${label}</label><input class="input num short" id="${id}" inputmode="decimal" placeholder="${ph||''}" value="${val==null||val===''?'':esc(val)}"></div>`;
 function openTarget(){
   const t=Object.assign({em:'kg'},curRec().target||{});cur=t;sheetKind='target';drawTarget();$('sheet').showModal();
@@ -794,6 +845,8 @@ document.addEventListener('click',e=>{
   if(ds.tab){S.tab=ds.tab;V.screen=ds.tab==='rcp'?'rcplist':'list';save();render();window.scrollTo(0,0)}
   else if(ds.back){V.screen=ds.back;render();window.scrollTo(0,0)}
   else if(b.id==='modeSw')switchMode();
+  else if(b.id==='fImp')fridgeImport();
+  else if(ds.fuse!=null){readAmt();if(ds.fuse===''){cur.use=''}else{const d=new Date();d.setDate(d.getDate()+(+ds.fuse));cur.use=dkey(d)}drawFridge()}
   else if(b.id==='dPrev'||b.id==='dNext'){const d=dparse(V.date);d.setDate(d.getDate()+(b.id==='dNext'?1:-1));V.date=dkey(d);render()}
   else if(b.id==='dToday'){V.date=dkey(new Date());render()}
   else if(b.id==='newRec'){const r={id:'r'+S.seq++,label:'',created:Date.now(),target:{},days:[newDay()]};S.records.push(r);V.rec=r.id;V.day=0;V.screen='edit';save();render();window.scrollTo(0,0)}
@@ -836,7 +889,7 @@ document.addEventListener('click',e=>{
   else if(b.id==='impBtn'){let t=null;try{t=JSON.parse($('io').value)}catch(x){}
     if(!t||!Array.isArray(t.records)){$('ioMsg').textContent='読み込めませんでした。書き出したデータをそのまま貼り付けてください。';return}
     ask('貼り付けたデータで置き換えますか？','この端末のいまのデータは消えます。',[{l:'置き換える',d:1,f:()=>{const mode=S.mode;S=Object.assign({tab:'set',seq:1,records:[],recipes:[],custom:[],portions:{},learned:{}},t,{mode});S.tab='set';fixS()}},CANCEL])}
-  else if(b.id==='wipe')ask('すべてのデータを消去しますか？','両方のモードの記録、レシピ、マイ食品、目安量がすべて消えます。',[{l:'消去',d:1,f:()=>{const mode=S.mode;S={tab:'set',mode,seq:2,records:[],recipes:[],custom:[],portions:{},learned:{},updated:0};fixS()}},CANCEL]);
+  else if(b.id==='wipe')ask('すべてのデータを消去しますか？','両方のモードの記録、冷蔵庫、レシピ、マイ食品、目安量がすべて消えます。',[{l:'消去',d:1,f:()=>{const mode=S.mode;S={tab:'set',mode,seq:2,records:[],recipes:[],custom:[],portions:{},learned:{},updated:0};fixS()}},CANCEL]);
   else if(ds.a!=null){const x=$('alert')._b[+ds.a];$('alert').close();if(x.f){x.f();save();render()}}
 });
 /* 行のスワイプ：左に動かすと右端に削除ボタンが出る（iOS 標準と同じ向き）。半分以上引くと開いたままになる */
