@@ -75,3 +75,10 @@ export function table(ID,tables,cols,size){const L=[],anom=[];
   tables.forEach(t=>[...t.rows].forEach((r,k)=>{const c=[...r.cells].map(x=>x.innerText.trim().replace(/\s+/g,' '));if(c.length<=Math.max(...cols))return;const v=cols.slice(1).map(i=>num(c[i]));
     if(!v.every(isNum)){if(v.some(isNum))anom.push(c.join('|').slice(0,80));return}L.push([c[cols[0]],size==null?'':c[size],...v].join('\t'))}));
   return finish(ID,L,{anom})}
+// 方式C：1行に名前と数値が並ぶ表。o={lx:[名前列],sx:[サイズ列],nx:[数値列],pages,cols,rt}
+export function flat(ID,o){const L=[],anom=[];const pages=o.pages||[...new Set(window.__IT.map(i=>i.p))];
+  for(const p of pages){const R={};window.__IT.filter(i=>i.p===p).forEach(i=>{const k=Object.keys(R).find(k=>Math.abs(k-i.y)<(o.rt||2))||i.y;(R[k]=R[k]||[]).push(i)});
+    Object.keys(R).sort((a,b)=>b-a).forEach(y=>{const r=R[y].sort((a,b)=>a.x-b.x);const nm=r.filter(i=>i.x>=o.lx[0]&&i.x<o.lx[1]).map(i=>i.s).join('');const sz=o.sx?r.filter(i=>i.x>=o.sx[0]&&i.x<o.sx[1]).map(i=>i.s).join(''):'';
+      const ns=r.filter(i=>i.x>=o.nx[0]&&i.x<o.nx[1]&&isNum(i.s)).map(i=>num(i.s));const v=o.cols?o.cols.map(c=>ns[c]):ns;
+      if(nm&&v.length===5&&v.every(x=>x!=null)&&ns.length>=(o.min||5))L.push([nm,sz,...v].join('\t'));else if(ns.length>=3||(nm&&ns.length))anom.push('p'+p+' y'+y+' '+nm+' ['+ns.join(',')+']')})}
+  return finish(ID,L,{anom})}
