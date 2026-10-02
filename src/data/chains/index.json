@@ -22,5 +22,13 @@
   "src": "https://www.mcdonalds.co.jp/quality/allergy_Nutrition/nutrient/",
   "updated": "2026年9月30日",
   "fetched": "2026-10-03"
+ },
+ {
+  "id": "yoshinoya",
+  "name": "吉野家",
+  "cat": "牛丼",
+  "src": "https://www.yoshinoya.com/pdf/allergy/",
+  "updated": "2026年10月1日",
+  "fetched": "2026-10-03"
  }
 ]
