@@ -225,7 +225,7 @@ loadState();fixS();
    新しいほうで上書きする方式（最後に保存した端末の内容が残る）。 */
 const CFG=window.EIYO_CONFIG&&window.EIYO_CONFIG.apiKey?window.EIYO_CONFIG:null,AK='eiyo-auth';
 let AUTH=null;try{AUTH=JSON.parse(localStorage.getItem(AK)||'null')}catch(e){}
-const ERR={EMAIL_NOT_FOUND:'このメールアドレスは登録されていません。',INVALID_PASSWORD:'パスワードが違います。',INVALID_LOGIN_CREDENTIALS:'メールアドレスかパスワードが違います。',EMAIL_EXISTS:'このメールアドレスは登録済みです。「ログイン」を使ってください。',INVALID_EMAIL:'メールアドレスの形式が正しくありません。',OPERATION_NOT_ALLOWED:'メールとパスワードでのログインが、接続先で有効になっていません。'};
+const ERR={ADMIN_ONLY_OPERATION:'新規登録は受け付けていません。登録済みのメールアドレスでログインしてください。',EMAIL_NOT_FOUND:'このメールアドレスは登録されていません。',INVALID_PASSWORD:'パスワードが違います。',INVALID_LOGIN_CREDENTIALS:'メールアドレスかパスワードが違います。',EMAIL_EXISTS:'このメールアドレスは登録済みです。「ログイン」を使ってください。',INVALID_EMAIL:'メールアドレスの形式が正しくありません。',OPERATION_NOT_ALLOWED:'メールとパスワードでのログインが、接続先で有効になっていません。'};
 const Sync={msg:'',at:0,timer:0,busy:false,
   on(){return !!(CFG&&AUTH)},
   setAuth(a){AUTH=a;try{a?localStorage.setItem(AK,JSON.stringify(a)):localStorage.removeItem(AK)}catch(e){}},
