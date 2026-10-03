@@ -147,7 +147,7 @@ dialog.alert{margin:auto;width:min(320px,calc(100% - 32px));border-radius:var(--
 #undo .btn{color:inherit;font-weight:600}
 @media (min-width:900px){#undo:not([hidden]){bottom:16px}}
 @media print{
-  .tabbar,#undo,#modeLoad,.navrow,.btn,.seg,select,#viewSel{display:none!important}
+  .tabbar,#undo,#modeLoad,.navrow,.btn,.seg,select,.noprint{display:none!important}
   .app{padding:0;max-width:none}body{background:#fff}.group{break-inside:avoid;border:1px solid #ccc}
   .cols{grid-template-columns:1fr 1fr;column-gap:16px}:root{--f-body:400 10px/13px;--f-large:700 16px/20px;--f-headline:600 10px/13px;--f-subhead:400 8px/11px;--f-footnote:400 8px/11px;--f-title2:700 12px/15px;--tap:18px}
   .row{padding:2px 8px;min-height:0}.stack,.cols{gap:6px}.meter{display:none}
@@ -644,7 +644,7 @@ function viewResult(){
   return `<div class="navrow"><button class="btn plain" data-back="edit">‹ 入力</button><button class="btn plain" id="copyRes">結果をコピー</button></div>
   <h1 class="large">${esc(r.label||'結果')}</h1>
   ${nd>1?`<div class="seg narrow" role="radiogroup" aria-label="表示する日">${segHTML('res',[[-1,'平均']].concat(r.days.map((x,i)=>[i,(i+1)+'日目'])),V.res)}</div>`:''}
-  <div class="group narrow"><div class="rowin" style="padding-inline-start:var(--pad)"><label for="viewSel" style="flex:1;min-width:0">表示</label><select class="input" style="flex:none;width:auto" id="viewSel">${Object.keys(VIEWS).map(k=>`<option value="${k}"${k===vk?' selected':''}>${VIEWS[k][0]}</option>`).join('')}</select></div></div>
+  <div class="group narrow noprint"><div class="rowin" style="padding-inline-start:var(--pad)"><label for="viewSel" style="flex:1;min-width:0">表示</label><select class="input" style="flex:none;width:auto" id="viewSel">${Object.keys(VIEWS).map(k=>`<option value="${k}"${k===vk?' selected':''}>${VIEWS[k][0]}</option>`).join('')}</select></div></div>
   ${warn.length?`<section><div class="ghead"><span class="footnote sec">確認が必要な点</span></div><div class="group">${warn.map(w=>`<div class="row"><span class="grow wrap">${esc(w)}</span></div>`).join('')}</div></section>`:''}
   <div class="cols"><div class="stack">
     <section><div class="ghead"><span class="footnote sec">${d<0?(a.n||0)+'日間の平均':'摂取量'}${vk==='std'?'':'（'+VW[0]+'の表示）'}</span></div><div class="group">${nutRows(a.v,tg,VW[1])}${body.join('')}</div>
@@ -652,7 +652,7 @@ function viewResult(){
     <button class="btn gray block" id="setTarget">目標を設定</button>
     ${prevHTML}
     ${pfcHTML(a.v,tg)}
-    ${C.length?`<section><div class="ghead"><span class="footnote sec">どこから来ているか</span></div><div class="group"><div class="rowin" style="padding-inline-start:var(--pad)"><label for="cjSel" style="flex:1;min-width:0">栄養素</label><select class="input" style="flex:none;width:auto" id="cjSel">${CJ.map(c=>`<option value="${c[0]}"${c[0]===cj?' selected':''}>${c[1]}</option>`).join('')}</select></div>${C.slice(0,8).map(([k,v])=>`<div class="row"><span class="grow"><span class="wrap">${esc(k)}</span><span class="meter" role="img" aria-label="${r0(v/ctot*100)}%"><span style="width:${Math.min(100,v/ctot*100)}%"></span></span></span><span class="val num">${fmt(v,cd)} ${cu}<span class="subhead sec">　${r0(v/ctot*100)}%</span></span></div>`).join('')}</div>
+    ${C.length?`<section><div class="ghead"><span class="footnote sec">どこから来ているか</span></div><div class="group"><div class="rowin noprint" style="padding-inline-start:var(--pad)"><label for="cjSel" style="flex:1;min-width:0">栄養素</label><select class="input" style="flex:none;width:auto" id="cjSel">${CJ.map(c=>`<option value="${c[0]}"${c[0]===cj?' selected':''}>${c[1]}</option>`).join('')}</select></div>${C.slice(0,8).map(([k,v])=>`<div class="row"><span class="grow"><span class="wrap">${esc(k)}</span><span class="meter" role="img" aria-label="${r0(v/ctot*100)}%"><span style="width:${Math.min(100,v/ctot*100)}%"></span></span></span><span class="val num">${fmt(v,cd)} ${cu}<span class="subhead sec">　${r0(v/ctot*100)}%</span></span></div>`).join('')}</div>
     <div class="gfoot footnote sec">${cn}の多い順です${C.length>8?'（上位8件）':''}。同じ名前の行はまとめています。</div></section>`:''}
     ${meals?`<section><div class="ghead"><span class="footnote sec">食事別のエネルギー</span></div><div class="group">${meals}</div></section>`:''}
   </div><div class="stack">
