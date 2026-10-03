@@ -8,7 +8,7 @@ async def main():
         pg=await (await b.new_context(viewport={'width':390,'height':844})).new_page()
         pg.on('console',lambda m: errs.append(m.text) if m.type=='error' else None); pg.on('pageerror',lambda e: errs.append(str(e)))
         await pg.goto(URL)
-        res=await pg.evaluate("""qs=>qs.map(q=>{const r=search(q);const o=r.out[0];return q+' => '+(o?(o.dish?'dish':F[o.idx][0]+' '+dispName(o.idx)+' '+stateOf(o.idx)+(o.tmp?'[仮]':''))+' ('+r.out.length+')':'×なし')})""",QS)
+        res=await pg.evaluate("""qs=>qs.map(q=>{const r=search(q);const o=r.out[0];return q+' => '+(o?(o.dish?'dish':o.idx==null?'other '+JSON.stringify(o).slice(0,60):(F[o.idx][0]+' '+dispName(o.idx)+' '+stateOf(o.idx)+(o.tmp?'[仮]':'')))+' ('+r.out.length+')':'×なし')})""",QS)
         print('\n'.join(res)); print('alias keys',await pg.evaluate("Object.keys(ALIAS).length"),'errors',errs)
         await b.close()
 asyncio.run(main())

@@ -21,7 +21,7 @@
 - `table`：HTML の表（マクドナルド）
 どの方式でも、エネルギーの列にある数値の個数と、取り出した行数が一致することを確かめる。
 
-## 収録済み（2026-10-03）
+## 収録済み（2026-10-03、26店・7,055品）
 | 店 | 出典 | 資料の日付 | 備考 |
 |---|---|---|---|
 | すき家 | https://images.zensho.co.jp/materials/sukiya/allergen/nutrition.pdf | 2026年9月29日 | |
@@ -39,13 +39,21 @@
 | デニーズ | https://www.dennys.jp/safety/pdf/nutritive_value_A.pdf | 2026年10月2日 | 通常店版。同名で数値の違う3品は区分をサイズ欄に |
 | ジョイフル | https://www.joyfull.co.jp/cal_pdf/cal.pdf | 2026年9月29日 | 同名で数値の違う行（後半の一覧）は「一覧の2つ目」 |
 | 天丼てんや | https://www.tenya.co.jp/pdf/allergen-shop.pdf | 2026年9月24日 | |
+| かっぱ寿司 | https://www.kappasushi.jp/master_data/pdf/info_element.pdf | 2026年10月1日 | 1食あたり（2貫商品を1貫で頼んだら半分）。数値が幅や「-」で書かれた酒類など11品は除外。同名で数値の違う行は区分（夏季節定番・テイクアウトなど）をサイズ欄に |
+| タリーズコーヒー | https://www.tullys.co.jp/menu/allergy/ （ページが読み込む公式API api.tullys.co.jp/api/calories/food・drink） | 2026年9月25日 | サイズ欄は「HOT/ICED・S/T/G・ミルクの種類」 |
+| フレッシュネスバーガー | https://www.freshnessburger.co.jp/pdf/seibun.pdf | フード2026年10月1日／ドリンク8月26日 | 日本語のページだけ（英語ページは同じ内容）。炭水化物は糖質＋食物繊維の合計の列 |
+| ジョリーパスタ | https://images.zensho.co.jp/materials/jolly-pasta/allergen/nutrition_facts.pdf | 2026年10月5日（資料の記載どおり） | 同名で数値の違う行はカテゴリーをサイズ欄に |
+| ロイヤルホスト | https://www.royalhost.jp/safety/images/defaultl_allergen_list_260917.pdf （入口 https://www.royalhost.jp/safety/product_infomation.html ） | 2026年9月17日 | 通常店版。名前も数値も同じ行（複数のメニュー表に載っている品）は1つにまとめた。備考欄の※（「①〜④の合計」「メイン料理のみ」など）は取り込んでいない。丸数字で始まる行はセットの内訳。数値が欠けたベビーフード2品は除外 |
+| びっくりドンキー | https://www.bikkuri-donkey.com/control-panel/uploads/2026/08/2026_0826_nutrition.pdf （入口 https://www.bikkuri-donkey.com/producing/ ） | 定番2026年4月8日／季節8月26日ほか | S・M・L は結合セルの中央にあるので、座標から行のまとまりを決めた（13行ずつ・8行ずつで一致を確認）。「〃」は直前の行の名前で置き換え。＋で書かれた追加分は「追加分」。テイクアウト・宅配の表はサイズ欄に明記 |
+| バーガーキング | https://www.burgerking.co.jp/images/org/pdf/2026/09/30/e9bf563b-8edc-43e9-b15b-ec52bbe275da.pdf （メニュー詳細の「カロリー・アレルゲン情報」ボタンの行き先） | 2026年10月2日 | サイズ欄は製品重量 |
+| リンガーハット | https://www.ringerhut.jp/quality/allergy-nutrition_value/ | 2026年9月17日 | HTML の表（列の順は エネルギー・食塩・たんぱく質・脂質・炭水化物）。名前も数値も同じ2行は1つに |
+| やよい軒 | https://www.yayoiken.com/menu_list/info/13 | 2026年8月1日 | 東京都版。ごはんの種類をサイズ欄に。数値が空欄の2行は除外 |
+| ほっともっと | https://www.hottomotto.com/menu_list/info/13 | 2026年10月1日 | 東京都版。ごはんの量をサイズ欄に |
+| ファミリーマート | https://www.family.co.jp/goods/safety.html （カテゴリ別13ページ） | 記載なし（2026-10-03 取得） | 対象地域が全国でない品は地域をサイズ欄に。数値が空欄・「未満」の2品は除外。商品の入れ替わりが早いので古くなりやすい |
 
-## これから（公式資料の場所は 2026-10-03 に調査。5項目そろった一覧があるもの）
-- PDF：フレッシュネスバーガー https://www.freshnessburger.co.jp/pdf/seibun.pdf ／バーガーキング（入口ページで最新版を確認してから）
-- PDF：ロイヤルホスト（入口 https://www.royalhost.jp/safety/product_infomation.html ）／びっくりドンキー（入口で最新版を確認）／ジョリーパスタ https://images.zensho.co.jp/materials/jolly-pasta/allergen/nutrition_facts.pdf
-- PDF：かっぱ寿司 https://www.kappasushi.jp/master_data/pdf/info_element.pdf ／タリーズ https://www.tullys.co.jp/menu/pdf/food.pdf ・drink.pdf
-- HTML の表：やよい軒（都道府県別 https://www.yayoiken.com/menu/allergy.html ）／ほっともっと（都道府県別）／リンガーハット https://www.ringerhut.jp/quality/allergy-nutrition_value/ ／ファミリーマート（カテゴリ別 https://www.family.co.jp/goods/safety.html ）
-- ロッテリア：PDF の場所は分かったが、ブラウザからの取得が 403 で読めなかった
+
+## 取り込めなかった店
+- ロッテリア：公式の栄養成分 PDF（https://images.zensho.co.jp/materials/lotteria/allergen/nutrition.pdf 、検索結果の表示では更新日 2026.3.18）は、ブラウザで開いたページからの読み込みが 403 で拒否される。回避はしていない
 
 ## 収録できない・保留
 - 炭水化物の列がない（糖質と食物繊維）：大戸屋

@@ -136,7 +136,7 @@
  {
   "id": "cocoichi",
   "name": "CoCo壱番屋",
-  "cat": "カレー・うどん",
+  "cat": "麺・カレー",
   "src": "https://www.ichibanya.co.jp/menu/pdf/nutrition.pdf",
   "updated": "2026年10月1日",
   "fetched": "2026-10-03",
@@ -148,12 +148,135 @@
  {
   "id": "hanamaru",
   "name": "はなまるうどん",
-  "cat": "カレー・うどん",
+  "cat": "麺・カレー",
   "src": "https://www.hanamaruudon.com/assets/pdf/allergy.pdf",
   "updated": "2026年10月1日",
   "fetched": "2026-10-03",
   "aka": [
    "はなまる"
+  ]
+ },
+ {
+  "id": "kappa",
+  "name": "かっぱ寿司",
+  "cat": "寿司",
+  "src": "https://www.kappasushi.jp/master_data/pdf/info_element.pdf",
+  "updated": "2026年10月1日",
+  "fetched": "2026-10-03",
+  "aka": [
+   "かっぱ"
+  ]
+ },
+ {
+  "id": "tullys",
+  "name": "タリーズコーヒー",
+  "cat": "カフェ",
+  "src": "https://www.tullys.co.jp/menu/allergy/",
+  "updated": "2026年9月25日",
+  "fetched": "2026-10-03",
+  "aka": [
+   "タリーズ"
+  ]
+ },
+ {
+  "id": "freshness",
+  "name": "フレッシュネスバーガー",
+  "cat": "ファストフード",
+  "src": "https://www.freshnessburger.co.jp/pdf/seibun.pdf",
+  "updated": "2026年10月1日（ドリンクは8月26日）",
+  "fetched": "2026-10-03",
+  "aka": [
+   "フレッシュネス"
+  ]
+ },
+ {
+  "id": "jollypasta",
+  "name": "ジョリーパスタ",
+  "cat": "定食・ファミレス",
+  "src": "https://images.zensho.co.jp/materials/jolly-pasta/allergen/nutrition_facts.pdf",
+  "updated": "2026年10月5日",
+  "fetched": "2026-10-03",
+  "aka": [
+   "ジョリパ"
+  ]
+ },
+ {
+  "id": "royalhost",
+  "name": "ロイヤルホスト",
+  "cat": "定食・ファミレス",
+  "src": "https://www.royalhost.jp/safety/images/defaultl_allergen_list_260917.pdf",
+  "updated": "2026年9月17日",
+  "fetched": "2026-10-03",
+  "aka": [
+   "ロイホ"
+  ]
+ },
+ {
+  "id": "bikkuridonkey",
+  "name": "びっくりドンキー",
+  "cat": "定食・ファミレス",
+  "src": "https://www.bikkuri-donkey.com/control-panel/uploads/2026/08/2026_0826_nutrition.pdf",
+  "updated": "2026年8月26日（定番は4月8日）",
+  "fetched": "2026-10-03",
+  "aka": [
+   "びくドン",
+   "ドンキー"
+  ]
+ },
+ {
+  "id": "burgerking",
+  "name": "バーガーキング",
+  "cat": "ファストフード",
+  "src": "https://www.burgerking.co.jp/images/org/pdf/2026/09/30/e9bf563b-8edc-43e9-b15b-ec52bbe275da.pdf",
+  "updated": "2026年10月2日",
+  "fetched": "2026-10-03",
+  "aka": [
+   "バーキン",
+   "BK"
+  ]
+ },
+ {
+  "id": "ringerhut",
+  "name": "リンガーハット",
+  "cat": "麺・カレー",
+  "src": "https://www.ringerhut.jp/quality/allergy-nutrition_value/",
+  "updated": "2026年9月17日",
+  "fetched": "2026-10-03",
+  "aka": [
+   "リンガー"
+  ]
+ },
+ {
+  "id": "yayoiken",
+  "name": "やよい軒",
+  "cat": "定食・ファミレス",
+  "src": "https://www.yayoiken.com/menu_list/info/13",
+  "updated": "2026年8月1日",
+  "fetched": "2026-10-03",
+  "aka": []
+ },
+ {
+  "id": "hottomotto",
+  "name": "ほっともっと",
+  "cat": "弁当・コンビニ",
+  "src": "https://www.hottomotto.com/menu_list/info/13",
+  "updated": "2026年10月1日",
+  "fetched": "2026-10-03",
+  "aka": [
+   "ほっともっと",
+   "ほも弁",
+   "Hotto Motto"
+  ]
+ },
+ {
+  "id": "familymart",
+  "name": "ファミリーマート",
+  "cat": "弁当・コンビニ",
+  "src": "https://www.family.co.jp/goods/safety.html",
+  "updated": "記載なし（2026-10-03 取得）",
+  "fetched": "2026-10-03",
+  "aka": [
+   "ファミマ"
   ]
  }
 ]
