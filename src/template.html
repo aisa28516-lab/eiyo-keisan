@@ -179,8 +179,8 @@ const $=id=>document.getElementById(id);
 const NUT=[[3,'エネルギー','kcal',0],[4,'たんぱく質','g',1],[5,'脂質','g',1],[6,'炭水化物','g',1],[11,'食物繊維','g',1],[7,'食塩相当量','g',1],
 [12,'カリウム','mg',0],[13,'カルシウム','mg',0],[14,'マグネシウム','mg',0],[15,'リン','mg',0],[16,'鉄','mg',1],[17,'亜鉛','mg',1],
 [18,'ビタミンA','µgRAE',0],[19,'ビタミンD','µg',1],[20,'ビタミンB1','mg',2],[21,'ビタミンB2','mg',2],[22,'ビタミンC','mg',0],[23,'葉酸','µg',0],[24,'ビタミンB12','µg',1],[25,'コレステロール','mg',0],
-[26,'水分','g',0],[31,'アルコール','g',1],[30,'ビタミンK','µg',0],[29,'利用可能炭水化物','g',1],[27,'たんぱく質（アミノ酸組成）','g',1],[28,'脂質（TAG当量）','g',1]];
-/* 20 水分、21 アルコール、22 ビタミンK、23 利用可能炭水化物（質量計。なければ差引き法）、24・25 はPFC比の計算用 */
+[26,'水分','g',0],[31,'アルコール','g',1],[30,'ビタミンK','µg',0],[29,'利用可能炭水化物','g',1],[27,'たんぱく質（アミノ酸組成）','g',1],[28,'脂質（TAG当量）','g',1],[32,'飽和脂肪酸','g',1]];
+/* 20 水分、21 アルコール、22 ビタミンK、23 利用可能炭水化物（質量計。なければ差引き法）、24・25 はPFC比の計算用、26 飽和脂肪酸（脂肪酸成分表編。収載のない食品は入れず、その分の脂質を sx に数える） */
 const NN=NUT.length,zero=()=>new Array(NN).fill(0);
 const GROUPS={'01':'穀類','02':'いも及びでん粉類','03':'砂糖及び甘味類','04':'豆類','05':'種実類','06':'野菜類','07':'果実類','08':'きのこ類','09':'藻類','10':'魚介類','11':'肉類','12':'卵類','13':'乳類','14':'油脂類','15':'菓子類','16':'し好飲料類','17':'調味料及び香辛料類','18':'調理済み流通食品類',mf:'マイ食品'};
 const CHK=['飲み物','間食・おやつ','調味料・油','お酒'];
@@ -343,22 +343,23 @@ function basis(it){
   if(F[i][10])return{v:i,rf:g.b,rate:F[i][10],note:'重量変化率'+F[i][10]+'%で調理後の重さに換算'};
   return{v:g.b,rf:g.b,rate:100,note:'重量変化率を使えないため'+F[g.b][9]+'の成分値で計算'+(OILY.includes(F[i][9])?'（油や衣は別の行で追加）':'')};
 }
-const acc=(t,c,k=1)=>{if(c.ext)t.ext=true;for(let j=0;j<NN;j++)t.v[j]+=c.v[j]*k;for(const g in c.gg)t.gg[g]=(t.gg[g]||0)+c.gg[g]*k;return t};
-const blank=()=>({v:zero(),gg:{},note:''});
+const acc=(t,c,k=1)=>{if(c.ext)t.ext=true;t.sx=(t.sx||0)+(c.sx||0)*k;for(let j=0;j<NN;j++)t.v[j]+=c.v[j]*k;for(const g in c.gg)t.gg[g]=(t.gg[g]||0)+c.gg[g]*k;return t};
+const blank=()=>({v:zero(),gg:{},note:'',sx:0});
 const sumItems=items=>items.reduce((t,it)=>acc(t,calc(it)),blank());
 function calc(it){
   const fr=it.fr==null?1:it.fr,q=it.g||0;
   if(it.dish){const r=S.recipes.find(x=>x.id===it.dish);if(!r){const b=blank();b.note='保存したレシピが見つかりません';return b}
     return acc(blank(),sumItems(r.items.filter(x=>!x.dish)),q/Math.max(1,r.servings||1)*fr)}
   if(it.pv){const d=S.diets.find(x=>x.id===it.pv),b=blank();if(!d){b.note='提供食の登録が見つかりません';return b}
-    const sm=it.sm==null?1:it.sm,sf=it.sf==null?1:it.sf;for(let j=0;j<NN;j++)b.v[j]=(d.main[j]||0)*sm+(d.side[j]||0)*sf;b.v[24]=b.v[1];b.v[25]=b.v[2];return b}
-  if(it.ext){const b=blank(),e=it.ext.v,k=q*fr;b.v[0]=e[0]*k;b.v[1]=e[1]*k;b.v[2]=e[2]*k;b.v[3]=e[3]*k;b.v[5]=e[4]*k;b.v[24]=b.v[1];b.v[25]=b.v[2];b.ext=true;return b}
+    const sm=it.sm==null?1:it.sm,sf=it.sf==null?1:it.sf;for(let j=0;j<NN;j++)b.v[j]=(d.main[j]||0)*sm+(d.side[j]||0)*sf;b.v[24]=b.v[1];b.v[25]=b.v[2];b.sx=(d.main[26]?0:(d.main[2]||0)*sm)+(d.side[26]?0:(d.side[2]||0)*sf);return b}
+  if(it.ext){const b=blank(),e=it.ext.v,k=q*fr;b.v[0]=e[0]*k;b.v[1]=e[1]*k;b.v[2]=e[2]*k;b.v[3]=e[3]*k;b.v[5]=e[4]*k;b.v[24]=b.v[1];b.v[25]=b.v[2];b.sx=b.v[2];b.ext=true;return b}
   if(it.cu){const c=S.custom.find(x=>x.id===it.cu),b=blank();if(!c){b.note='マイ食品が見つかりません';return b}
-    const k=(c.basis==='u'?q:q/100)*fr;for(let j=0;j<NN;j++)b.v[j]=(c.v[j]||0)*k;b.v[24]=b.v[1];b.v[25]=b.v[2];if(c.basis==='g')b.gg.mf=q*fr;return b}
+    const k=(c.basis==='u'?q:q/100)*fr;for(let j=0;j<NN;j++)b.v[j]=(c.v[j]||0)*k;b.v[24]=b.v[1];b.v[25]=b.v[2];if(!c.v[26])b.sx=b.v[2];if(c.basis==='g')b.gg.mf=q*fr;return b}
   const B=basis(it),f=F[B.v],rf=F[B.rf][2],b=blank();b.note=B.note;
   const w=q*(it.r?1-rf/100:1)*B.rate/100*fr;   /* 食べた状態の重さ(g) */
   if(it.r&&rf>0)b.note=(b.note?b.note+'／':'')+'廃棄率'+rf+'%を差し引き';
-  for(let j=0;j<NN;j++)b.v[j]=f[NUT[j][0]]*w/100;
+  for(let j=0;j<NN;j++)b.v[j]=(f[NUT[j][0]]||0)*w/100;
+  if(f[32]==null)b.sx=b.v[2];
   b.gg[f[0].slice(0,2)]=w;return b;
 }
 function dayAgg(day){
@@ -593,6 +594,7 @@ function viewEdit(){
 function nutRows(v,tg,ids){
   return ids.map(j=>{const [,n,u,d]=NUT[j];let sub='';
     const T=tg&&(j===0?tg.kcal:j===1?tg.prot:j===4?tg.fiber:j===5?tg.salt:null);
+    if(j===26&&v[0]>0)sub=`エネルギー比 ${r1(v[26]*9/v[0]*100)}%　目標量 7%以下（18歳以上）`;
     if(T){const pct=v[j]/T*100;sub=`目標 ${fmt(T,d)} ${u}${j===5?'未満':j===4?'以上':''}　${j===5?'目標比':'充足率'} ${r0(pct)}%<span class="meter" role="img" aria-label="${r0(pct)}%"><span style="width:${Math.min(100,pct)}%"></span></span>`}
     return `<div class="row"><span class="grow">${j===0?'<span class="headline">エネルギー</span>':n}${sub?`<span class="subhead sec num" style="display:grid;gap:4px">${sub}</span>`:''}</span><span class="val num${j===0?' title2':''}">${fmt(v[j],d)} ${u}</span></div>`}).join('');
 }
@@ -611,7 +613,7 @@ function groupHTML(gg){
   <div class="gfoot footnote sec">食べた状態の重さです。保存したレシピは材料ごとに、1食あたりで登録したマイ食品は含みません。</div></section>`;
 }
 /* 結果ページの表示の切り替え。並びを変えるだけで、基準値は新しく作らない */
-const VIEWS={std:['標準',[0,1,2,3,4,5]],ckd:['腎臓',[0,1,6,9,5,20]],dm:['糖尿病',[0,3,23,4,1,2]],lip:['脂質異常',[0,2,19,4,5]],mal:['低栄養',[0,1]]};
+const VIEWS={std:['標準',[0,1,2,3,4,5]],ckd:['腎臓',[0,1,6,9,5,20]],dm:['糖尿病',[0,3,23,4,1,2]],lip:['脂質異常',[0,2,26,19,4,5]],mal:['低栄養',[0,1]]};
 const CJ=[[0,'エネルギー'],[5,'食塩'],[1,'たんぱく質'],[6,'カリウム'],[9,'リン']];
 /* どの行から来ているか（同じ名前の行はまとめる）。日数で割って1日あたりにする */
 function contrib(days,j,n){
@@ -656,7 +658,7 @@ function viewResult(){
   ${warn.length?`<section><div class="ghead"><span class="footnote sec">確認が必要な点</span></div><div class="group">${warn.map(w=>`<div class="row"><span class="grow wrap">${esc(w)}</span></div>`).join('')}</div></section>`:''}
   <div class="cols"><div class="stack">
     <section><div class="ghead"><span class="footnote sec">${d<0?(a.n||0)+'日間の平均':'摂取量'}${vk==='std'?'':'（'+VW[0]+'の表示）'}</span></div><div class="group">${nutRows(a.v,tg,VW[1])}${body.join('')}</div>
-    <div class="gfoot footnote sec">${tg.notes.length?tg.notes.map(esc).join('<br>'):'目標を設定すると、目標との比較が出ます。'}${vk==='lip'?'<br>飽和脂肪酸は、成分表の本表に列がなく（脂肪酸成分表編に収載）、まだ計算に入れていません。':''}${(vk==='mal'||vk==='ckd')&&!W?'<br>目標の設定で体重を入れると、体重1 kgあたりの量が出ます。':''}${vk==='std'?'':'<br>表示の切り替えは並びを変えるだけで、疾患ごとの基準値は入れていません。'}</div></section>
+    <div class="gfoot footnote sec">${tg.notes.length?tg.notes.map(esc).join('<br>'):'目標を設定すると、目標との比較が出ます。'}${vk==='lip'?'<br>飽和脂肪酸は、成分表の脂肪酸成分表編（第1表）の値です。エネルギー比は 飽和脂肪酸(g)×9÷エネルギーで、目標量は食事摂取基準（2025年版）の18歳以上の値です。'+(a.sx>0.05?'収載値のない食品、チェーン店のメニュー、飽和脂肪酸を入れていないマイ食品・提供食（脂質 '+r1(a.sx)+' g 分）は含まないので、実際より少なく出ます。':''):''}${(vk==='mal'||vk==='ckd')&&!W?'<br>目標の設定で体重を入れると、体重1 kgあたりの量が出ます。':''}${vk==='std'?'':'<br>表示の切り替えは並びを変えるだけで、疾患ごとの基準値は入れていません。'}</div></section>
     <button class="btn gray block" id="setTarget">目標を設定</button>
     ${routeHTML}
     ${prevHTML}
@@ -667,8 +669,8 @@ function viewResult(){
   </div><div class="stack">
     <section><div class="ghead"><span class="footnote sec">ミネラル</span></div><div class="group">${nutRows(a.v,null,[6,7,8,9,10,11])}</div></section>
     <section><div class="ghead"><span class="footnote sec">ビタミン</span></div><div class="group">${nutRows(a.v,null,[12,13,22,14,15,16,17,18])}</div></section>
-    <section><div class="ghead"><span class="footnote sec">その他</span></div><div class="group">${nutRows(a.v,null,[19,23,20,21])}</div>
-    <div class="gfoot footnote sec">成分表で未測定（−）や微量（Tr）の成分は0として合計しています。利用可能炭水化物は質量計（収載値がない食品は差引き法）です。マイ食品とチェーン店のメニューは、水分・アルコール・ビタミンK・利用可能炭水化物を0として合計しています。${a.ext?'チェーン店のメニューは、エネルギー・たんぱく質・脂質・炭水化物・食塩相当量だけを合計しています（食物繊維・ミネラル・ビタミンは公表値がないため0）。':''}</div></section>
+    <section><div class="ghead"><span class="footnote sec">その他</span></div><div class="group">${nutRows(a.v,null,[19,26,23,20,21])}</div>
+    <div class="gfoot footnote sec">成分表で未測定（−）や微量（Tr）の成分は0として合計しています。利用可能炭水化物は質量計（収載値がない食品は差引き法）です。マイ食品とチェーン店のメニューは、水分・アルコール・ビタミンK・利用可能炭水化物を0として合計しています。飽和脂肪酸は脂肪酸成分表編（第1表）の値で、エネルギー比は 飽和脂肪酸(g)×9÷エネルギー、目標量は食事摂取基準（2025年版）の18歳以上の値です。${a.sx>0.05?'飽和脂肪酸の収載値がない食品、チェーン店のメニュー、飽和脂肪酸を入れていないマイ食品・提供食（脂質 '+r1(a.sx)+' g 分）は含まないので、実際より少なく出ます。':''}${a.ext?'チェーン店のメニューは、エネルギー・たんぱく質・脂質・炭水化物・食塩相当量だけを合計しています（食物繊維・ミネラル・ビタミンは公表値がないため0）。':''}</div></section>
     <section><div class="ghead"><span class="footnote sec">野菜・果物・アルコール</span></div><div class="group">${pctRow('野菜類',veg,350)}${pctRow('果実類',fru,200)}${row('純アルコール',r1(alc)+' g')}</div>
     <div class="gfoot footnote sec">野菜350 g、果物200 gは、健康日本21（第三次）の目標（集団の平均値の目標）です。成分表の「野菜類」「果実類」に分類される食品の、食べた状態の重さを合計しています（ジュースや漬物も含みます）。純アルコールは成分表のアルコール（g）の合計です。同じ計画は、1日の純アルコール摂取量が男性40 g以上、女性20 g以上を「生活習慣病のリスクを高める量」としています。</div></section>
     ${groupHTML(a.gg)}
@@ -702,7 +704,7 @@ function viewRcpResult(){
   <div class="seg narrow" role="radiogroup" aria-label="表示する量">${segHTML('per',[[1,'1人分'],[0,'全量（'+n+'人分）']],V.per)}</div>
   <div class="cols"><div class="stack"><section><div class="group">${nutRows(v,null,[0,1,2,3,4,5])}</div></section>${pfcHTML(v,null)}</div>
   <div class="stack"><section><div class="ghead"><span class="footnote sec">ミネラル</span></div><div class="group">${nutRows(v,null,[6,7,8,9,10,11])}</div></section>
-  <section><div class="ghead"><span class="footnote sec">ビタミン・その他</span></div><div class="group">${nutRows(v,null,[12,13,22,14,15,16,17,18,19,23,20,21])}</div></section>${groupHTML(gg)}</div></div>${sourceNote()}`;
+  <section><div class="ghead"><span class="footnote sec">ビタミン・その他</span></div><div class="group">${nutRows(v,null,[12,13,22,14,15,16,17,18,19,26,23,20,21])}</div></section>${groupHTML(gg)}</div></div>${sourceNote()}`;
 }
 /* ---------- 冷蔵庫（自分用モード） ---------- */
 const daysLeft=k=>Math.round((dparse(k)-dparse(dkey(new Date())))/864e5);
@@ -776,7 +778,7 @@ function viewSet(){
   ${syncHTML()}
   <section><div class="ghead"><span class="footnote sec">カルテ用の定型文</span></div><div class="stack" style="gap:8px"><textarea class="input" id="karteT" aria-label="カルテ用の定型文" style="min-height:200px">${esc(S.karte||KARTE_DEF)}</textarea>
   <div class="inline"><button class="btn gray" id="karteSave">保存</button><button class="btn gray" id="karteReset">初期の文に戻す</button></div><p class="footnote sec note" id="karteMsg" role="status"></p></div>
-  <div class="gfoot footnote sec">結果ページの「カルテ用の文をコピー」で使います。行の順番や文面は自由に変えられます。{ } で囲んだ語が値に置き換わります：{番号} {記録日} {日数} {エネルギー} {たんぱく質} {脂質} {炭水化物} {食物繊維} {食塩} {カリウム} {リン} {水分} {アルコール} {利用可能炭水化物} {コレステロール} {PFC} {目標} {目標エネルギー} {充足率} {BMI} {体重} {目標体重} {体重あたりエネルギー} {体重あたりたんぱく質} {野菜} {果物} {確認事項} {食事内容} {出典}。値が空の行は出ません。</div></section>
+  <div class="gfoot footnote sec">結果ページの「カルテ用の文をコピー」で使います。行の順番や文面は自由に変えられます。{ } で囲んだ語が値に置き換わります：{番号} {記録日} {日数} {エネルギー} {たんぱく質} {脂質} {炭水化物} {食物繊維} {食塩} {カリウム} {リン} {水分} {アルコール} {利用可能炭水化物} {コレステロール} {飽和脂肪酸} {PFC} {目標} {目標エネルギー} {充足率} {BMI} {体重} {目標体重} {体重あたりエネルギー} {体重あたりたんぱく質} {野菜} {果物} {確認事項} {食事内容} {出典}。値が空の行は出ません。</div></section>
   <section><div class="ghead"><span class="footnote sec">バックアップ</span></div><div class="stack" style="gap:8px"><button class="btn gray block" id="expBtn">すべてのデータを書き出す</button>
   <textarea class="input" id="io" aria-label="バックアップのデータ" placeholder="書き出したデータがここに出ます。読み込むときは、ここに貼り付けます。"></textarea>
   <button class="btn gray block" id="impBtn">貼り付けたデータを読み込む</button><p class="footnote sec note" id="ioMsg" role="status"></p></div></section>
@@ -935,7 +937,7 @@ function drawTarget(){
   <button class="btn destructive block gray" id="clearTarget">目標をすべて消す</button>`);
 }
 const readTarget=()=>{[['age','t_age'],['h','t_h'],['w','t_w'],['af','t_af'],['sf','t_sf'],['kk','t_kk'],['ef','t_ef'],['bmi','t_bmi'],['ek','t_ek'],['pk','t_pk'],['salt','t_salt']].forEach(([k,id])=>{if($(id)){const v=numOf(id);cur[k]=v==null?'':v}})};
-const CUF=[[0,'エネルギー（kcal）'],[1,'たんぱく質（g）'],[2,'脂質（g）'],[3,'炭水化物（g）'],[5,'食塩相当量（g）'],[4,'食物繊維（g）'],[20,'水分（g）'],[6,'カリウム（mg）'],[9,'リン（mg）']];
+const CUF=[[0,'エネルギー（kcal）'],[1,'たんぱく質（g）'],[2,'脂質（g）'],[26,'飽和脂肪酸（g）'],[3,'炭水化物（g）'],[5,'食塩相当量（g）'],[4,'食物繊維（g）'],[20,'水分（g）'],[6,'カリウム（mg）'],[9,'リン（mg）']];
 const ROUTES={oral:'経口',en:'経腸栄養',pn:'静脈栄養'};
 const cuBasis=c=>c.basis==='g'?'100 gあたり':c.basis==='ml'?'100 mLあたり':(c.unit||'1食')+'あたり';
 function openCustom(id){
@@ -1013,7 +1015,7 @@ function lines(v,tg){
   L.push('たんぱく質 '+r1(v[1])+' g'+(tg&&tg.prot?'（目標 '+r1(tg.prot)+' g、充足率 '+r0(v[1]/tg.prot*100)+'%）':'')+'／脂質 '+r1(v[2])+' g／炭水化物 '+r1(v[3])+' g');
   L.push('PFC比 '+r0(p[0])+' : '+r0(p[1])+' : '+r0(p[2])+'（%エネルギー、'+(S.pfc==='old'?'従来の方法':'八訂の方法')+'）');
   L.push('食塩相当量 '+r1(v[5])+' g'+(tg&&tg.salt?'（目標 '+tg.salt+' g未満）':'')+'／食物繊維 '+r1(v[4])+' g'+(tg&&tg.fiber?'（目標 '+tg.fiber+' g以上）':''));
-  L.push([6,7,8,9,10,11,12,13,14,15,16,17,18,22,19,23,20,21].map(k=>NUT[k][1]+' '+fmt(v[k],NUT[k][3])+' '+NUT[k][2]).join('／'));
+  L.push([6,7,8,9,10,11,12,13,14,15,16,17,18,22,19,26,23,20,21].map(k=>NUT[k][1]+' '+fmt(v[k],NUT[k][3])+' '+NUT[k][2]).join('／'));
   return L;
 }
 function textOfRecord(){
@@ -1034,7 +1036,7 @@ function karteVars(){
   const warn=[...document.querySelectorAll('#view section')].find(x=>x.textContent.startsWith('確認が必要な点'));
   const meals=[];(d>=0?[r.days[d]]:r.days).forEach((x,i)=>{if(d<0)meals.push((i+1)+'日目');MEALS.forEach((mn,mi)=>{const ms=x.menus.filter(m=>m.meal===mi&&m.items.length);if(ms.length)meals.push(mn+'：'+ms.map(m=>(m.name?m.name+'（':'')+m.items.map(t=>itemName(t)+' '+itemAmount(t)+(t.fr!=null&&t.fr!==1?'・'+frText(t.fr):'')).join('、')+(m.name?'）':'')).join('、'))})});
   return {'番号':r.label||'','記録日':r.self?r.label:dlabel(recDate(r)),'日数':d<0?'（'+(a.n||0)+'日間の平均）':nd>1?'（'+(d+1)+'日目）':'',
-   'エネルギー':r0(v[0]),'たんぱく質':r1(v[1]),'脂質':r1(v[2]),'炭水化物':r1(v[3]),'食物繊維':r1(v[4]),'食塩':r1(v[5]),'カリウム':r0(v[6]),'リン':r0(v[9]),'水分':r0(v[20]),'アルコール':r1(v[21]),'利用可能炭水化物':r1(v[23]),'コレステロール':r0(v[19]),
+   'エネルギー':r0(v[0]),'たんぱく質':r1(v[1]),'脂質':r1(v[2]),'炭水化物':r1(v[3]),'食物繊維':r1(v[4]),'食塩':r1(v[5]),'カリウム':r0(v[6]),'リン':r0(v[9]),'水分':r0(v[20]),'アルコール':r1(v[21]),'利用可能炭水化物':r1(v[23]),'コレステロール':r0(v[19]),'飽和脂肪酸':r1(v[26]),
    'PFC':r0(p[0])+' : '+r0(p[1])+' : '+r0(p[2])+'（'+(S.pfc==='old'?'従来の方法':'八訂の方法')+'）',
    '目標':[tg.kcal?'エネルギー '+r0(tg.kcal)+' kcal（充足率 '+r0(v[0]/tg.kcal*100)+'%）':'',tg.prot?'たんぱく質 '+r1(tg.prot)+' g（充足率 '+r0(v[1]/tg.prot*100)+'%）':'',tg.salt?'食塩 '+tg.salt+' g未満':''].filter(Boolean).join('、')||'未設定',
    '目標エネルギー':tg.kcal?r0(tg.kcal):'','充足率':tg.kcal?r0(v[0]/tg.kcal*100)+'%':'','BMI':tg.bmi?r1(tg.bmi):'','体重':W||'','目標体重':tg.tw?r1(tg.tw):'',
@@ -1044,7 +1046,7 @@ function karteVars(){
 }
 const karteText=()=>{const V2=karteVars();return (S.karte||KARTE_DEF).replace(/\{([^{}]+)\}/g,(m,k)=>k in V2?V2[k]:m).split('\n').filter(l=>l.trim()).join('\n')};
 function csvOfRecord(){
-  const r=curRec(),q=x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"',ids=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,22,14,15,16,17,18,19,23,20,21],L=[];
+  const r=curRec(),q=x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"',ids=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,22,14,15,16,17,18,19,26,23,20,21],L=[];
   L.push(['番号','記録日','日','食事','メニュー','食品','食品番号','量','単位','食べた割合'].concat(ids.map(j=>NUT[j][1]+'('+NUT[j][2]+')')).map(q).join(','));
   r.days.forEach((x,di)=>x.menus.forEach(m=>m.items.forEach(it=>{const c=calc(it);L.push([r.label||'',r.self?V.date:recDate(r),di+1,MEALS[m.meal],m.name||'',itemName(it),it.id||'',it.g==null?'':it.g,it.pv?'食':it.ext?'品':it.dish?'人分':it.cu&&(S.custom.find(z=>z.id===it.cu)||{}).basis==='u'?'個':it.cu&&(S.custom.find(z=>z.id===it.cu)||{}).basis==='ml'?'mL':'g',it.fr==null?1:it.fr].concat(ids.map(j=>Math.round(c.v[j]*100)/100)).map(q).join(','))})));
   r.days.forEach((x,di)=>{const a=dayAgg(x);L.push([r.label||'',r.self?V.date:recDate(r),di+1,'合計','','','','','',''].concat(ids.map(j=>Math.round(a.v[j]*100)/100)).map(q).join(','))});

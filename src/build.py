@@ -28,7 +28,11 @@ EXTRA = json.load(open(f'{D}/data/extra.json'))
 for f in foods:
     w, pa, fa, cav, cdf, vk, alc = EXTRA[f[0]]
     f += [w or 0, pa if pa is not None else f[4], fa if fa is not None else f[5], cav if cav is not None else (cdf or 0), vk or 0, alc or 0]
-assert len(foods[0]) == 32
+# 飽和脂肪酸（脂肪酸成分表編 第1表 可食部100 g当たり。収載のない食品は None＝計算に入れない）
+FA = {l.split('\t')[0]: l.rstrip('\n').split('\t')[1] for l in open(f'{D}/data/fattyacid.tsv', encoding='utf-8') if not l.startswith('#')}
+for f in foods:
+    f.append(num(FA[f[0]]) if f[0] in FA else None)
+assert len(foods[0]) == 33
 full = {tuple(t): i for i, t in enumerate(toks)}
 by = collections.defaultdict(list)
 for i, t in enumerate(toks):
@@ -83,7 +87,7 @@ for f in foods:
 chk = {f[0]: f for f in foods}
 assert chk['11183'][3] == 241 and chk['11314'][3] == 238 and chk['11315'][3] == 283 and chk['11316'][3] == 254
 assert chk['06372'][6] == 4.3 and chk['10470'][6] == 12.2 and '半固体状' in chk['17042'][1]
-assert len(foods) == 2538 and all(len(f) == 32 for f in foods)
+assert len(foods) == 2538 and all(len(f) == 33 for f in foods)
 assert chk['01088'][11] == 1.5 and chk['01088'][12] == 29 and chk['01088'][15] == 34, chk['01088']
 
 # ---- 呼び名の辞書 ----

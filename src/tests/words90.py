@@ -1,5 +1,5 @@
 """聞き取りでよく出る90語の成績表。候補ゼロの数、量が決まった数、1位が期待どおりの数を出す。
-期待する1位は src/tests/words90_expect.json（ユーザーが確認したものだけ入れる）。"""
+期待する1位は src/tests/words90_expect.json（Claude が成分表の食品名を見て決めた案。確認して直したら、このファイルを書き換える）。"""
 import asyncio, json, os, sys
 from playwright.async_api import async_playwright
 HERE=os.path.dirname(os.path.abspath(__file__))
@@ -16,7 +16,7 @@ async def main():
     async with async_playwright() as p:
         b=await p.chromium.launch(); pg=await b.new_page(); await pg.goto(URL)
         rs=[await pg.evaluate(JS,w) for w in WORDS]; await b.close()
-    ep=os.path.join(HERE,'words90_expect.json'); exp=json.load(open(ep,encoding='utf-8')) if os.path.exists(ep) else {}
+    ep=os.path.join(HERE,'words90_expect.json'); exp=json.load(open(ep,encoding='utf-8')) if os.path.exists(ep) else {}; exp={k:v for k,v in exp.items() if not k.startswith('_')}
     zero=[r['q'] for r in rs if r['top'] is None]; withq=[r for r in rs if r['qty']]; solved=[r for r in withq if r['g'] is not None]
     ok=[r for r in rs if r['q'] in exp and r['code'] in exp[r['q']]]; ng=[r for r in rs if r['q'] in exp and r['code'] not in exp[r['q']]]
     if '-v' in sys.argv:
