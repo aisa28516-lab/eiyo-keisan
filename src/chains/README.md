@@ -33,11 +33,17 @@
 | ケンタッキー | https://www.kfc.co.jp/food_information （PDF は外部CDN） | 2026年9月11日 | |
 | CoCo壱番屋 | https://www.ichibanya.co.jp/menu/pdf/nutrition.pdf | 2026年10月1日 | ＊の注記（ライス量など）をサイズ欄に入れている |
 | はなまるうどん | https://www.hanamaruudon.com/assets/pdf/allergy.pdf | 2026年10月1日 | レギュラーメニュー（2〜5ページ）だけ。季節メニューと吉野家コラボ店メニューは未収録 |
+| サブウェイ | https://subway.co.jp/documents/pdf/eiyo.pdf | 2026年9月30日 | 同じ名前がサンドイッチ・サラダ・トッピングにあるので、区分をサイズ欄に入れている |
+| ミスタードーナツ | https://www.misterdonut.jp/m_menu/eiyou/eiyou.pdf | 2026年9月30日 | |
+| 松のや | https://www.matsuyafoods.co.jp/matsunoya/pdf/261002_matsunoya_nutritional.pdf | 2026年10月2日 | 一般店舗版。数値が幅で書かれた1品（マミー）は除外 |
+| デニーズ | https://www.dennys.jp/safety/pdf/nutritive_value_A.pdf | 2026年10月2日 | 通常店版。同名で数値の違う3品は区分をサイズ欄に |
+| ジョイフル | https://www.joyfull.co.jp/cal_pdf/cal.pdf | 2026年9月29日 | 同名で数値の違う行（後半の一覧）は「一覧の2つ目」 |
+| 天丼てんや | https://www.tenya.co.jp/pdf/allergen-shop.pdf | 2026年9月24日 | |
 
 ## これから（公式資料の場所は 2026-10-03 に調査。5項目そろった一覧があるもの）
-- PDF：サブウェイ https://subway.co.jp/documents/pdf/eiyo.pdf ／ミスタードーナツ https://www.misterdonut.jp/m_menu/eiyou/eiyou.pdf ／フレッシュネスバーガー https://www.freshnessburger.co.jp/pdf/seibun.pdf ／バーガーキング（入口ページで最新版を確認してから）
-- PDF：ジョイフル https://www.joyfull.co.jp/cal_pdf/cal.pdf ／デニーズ https://www.dennys.jp/safety/pdf/nutritive_value_A.pdf ／ロイヤルホスト（入口 https://www.royalhost.jp/safety/product_infomation.html ）／びっくりドンキー（入口で最新版を確認）／ジョリーパスタ https://images.zensho.co.jp/materials/jolly-pasta/allergen/nutrition_facts.pdf
-- PDF：天丼てんや https://www.tenya.co.jp/pdf/allergen-shop.pdf ／松のや（入口 https://www.matsuyafoods.co.jp/matsunoya/safety/allergen.html ）／かっぱ寿司 https://www.kappasushi.jp/master_data/pdf/info_element.pdf ／タリーズ https://www.tullys.co.jp/menu/pdf/food.pdf ・drink.pdf
+- PDF：フレッシュネスバーガー https://www.freshnessburger.co.jp/pdf/seibun.pdf ／バーガーキング（入口ページで最新版を確認してから）
+- PDF：ロイヤルホスト（入口 https://www.royalhost.jp/safety/product_infomation.html ）／びっくりドンキー（入口で最新版を確認）／ジョリーパスタ https://images.zensho.co.jp/materials/jolly-pasta/allergen/nutrition_facts.pdf
+- PDF：かっぱ寿司 https://www.kappasushi.jp/master_data/pdf/info_element.pdf ／タリーズ https://www.tullys.co.jp/menu/pdf/food.pdf ・drink.pdf
 - HTML の表：やよい軒（都道府県別 https://www.yayoiken.com/menu/allergy.html ）／ほっともっと（都道府県別）／リンガーハット https://www.ringerhut.jp/quality/allergy-nutrition_value/ ／ファミリーマート（カテゴリ別 https://www.family.co.jp/goods/safety.html ）
 - ロッテリア：PDF の場所は分かったが、ブラウザからの取得が 403 で読めなかった
 

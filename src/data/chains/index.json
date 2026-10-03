@@ -38,6 +38,17 @@
   "aka": []
  },
  {
+  "id": "tenya",
+  "name": "天丼てんや",
+  "cat": "牛丼・丼",
+  "src": "https://www.tenya.co.jp/pdf/allergen-shop.pdf",
+  "updated": "2026年9月24日",
+  "fetched": "2026-10-03",
+  "aka": [
+   "てんや"
+  ]
+ },
+ {
   "id": "mcdonalds",
   "name": "マクドナルド",
   "cat": "ファストフード",
@@ -72,6 +83,55 @@
    "ケンタ",
    "KFC"
   ]
+ },
+ {
+  "id": "subway",
+  "name": "サブウェイ",
+  "cat": "ファストフード",
+  "src": "https://subway.co.jp/documents/pdf/eiyo.pdf",
+  "updated": "2026年9月30日",
+  "fetched": "2026-10-03",
+  "aka": []
+ },
+ {
+  "id": "misterdonut",
+  "name": "ミスタードーナツ",
+  "cat": "ファストフード",
+  "src": "https://www.misterdonut.jp/m_menu/eiyou/eiyou.pdf",
+  "updated": "2026年9月30日",
+  "fetched": "2026-10-03",
+  "aka": [
+   "ミスド"
+  ]
+ },
+ {
+  "id": "matsunoya",
+  "name": "松のや",
+  "cat": "定食・ファミレス",
+  "src": "https://www.matsuyafoods.co.jp/matsunoya/pdf/261002_matsunoya_nutritional.pdf",
+  "updated": "2026年10月2日",
+  "fetched": "2026-10-03",
+  "aka": [
+   "松乃家"
+  ]
+ },
+ {
+  "id": "dennys",
+  "name": "デニーズ",
+  "cat": "定食・ファミレス",
+  "src": "https://www.dennys.jp/safety/pdf/nutritive_value_A.pdf",
+  "updated": "2026年10月2日",
+  "fetched": "2026-10-03",
+  "aka": []
+ },
+ {
+  "id": "joyfull",
+  "name": "ジョイフル",
+  "cat": "定食・ファミレス",
+  "src": "https://www.joyfull.co.jp/cal_pdf/cal.pdf",
+  "updated": "2026年9月29日",
+  "fetched": "2026-10-03",
+  "aka": []
  },
  {
   "id": "cocoichi",

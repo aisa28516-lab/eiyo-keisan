@@ -1,5 +1,5 @@
 // 電波がないときも開けるようにする。通信できるときは常に最新を取りに行く。
-const C = 'eiyo-2f3c6ae2a5';
+const C = 'eiyo-31ede77a8b';
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(C).then(c => c.addAll(['./', 'config.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png']))) });
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', e => {
