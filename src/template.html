@@ -218,10 +218,11 @@ const PRESETS=[
  ['ほうれん草のおひたし',['ほうれん草おひたし','おひたし','お浸し','ほうれんそうのおひたし'],[['06268',70,'a'],['17007',3],['10091',0.5]]],
  ['刺身（まぐろ赤身）',['刺身','さしみ','お刺身','刺し身'],[['10253',60],['17007',5]]],
  ['野菜サラダ',['サラダ','生野菜サラダ','グリーンサラダ'],[['06312',40],['06065',20],['06182',30]]],
- ['千切りキャベツ',['キャベツ千切り','キャベツの千切り','せんキャベツ','キャベツせん切り'],[['06061',40]]]];
-const addPresets=()=>{if(S.presetV>=1)return;S.presetV=1;PRESETS.forEach(([name,aka,its],k)=>{if(S.recipes.some(r=>r.name===name))return;
-  S.recipes.push({id:'p'+(k+1),name,aka,preset:true,servings:1,items:its.map(([id,g,t])=>({n:S.seq++,id,g,t:t||'b',r:false}))})})};
-const fixS=()=>{if(S.mode!=='self')S.mode='pro';if(!S.me||typeof S.me!=='object')S.me={};S.me.target=S.me.target||{};S.me.days=S.me.days||{};if(!Array.isArray(S.fridge))S.fridge=[];addPresets()};
+ ['千切りキャベツ',['キャベツ千切り','キャベツの千切り','せんキャベツ','キャベツせん切り'],[['06061',40]]],
+ ['にぎり寿司（まぐろ・1貫）',['寿司','すし','鮨','お寿司','にぎり寿司','握り寿司','にぎり','握り'],[['01088',20,'a'],['17102',2],['10253',12]],'貫']];
+const addPresets=()=>{const from=S.presetV===1?7:S.presetV>=2?PRESETS.length:0;S.presetV=2;PRESETS.forEach(([name,aka,its,unit],k)=>{if(k<from||S.recipes.some(r=>r.name===name))return;
+  S.recipes.push({id:'p'+(k+1),name,aka,unit,preset:true,servings:1,items:its.map(([id,g,t])=>({n:S.seq++,id,g,t:t||'b',r:false}))})})};
+const fixS=()=>{if(S.mode!=='self')S.mode='pro';if(!S.me||typeof S.me!=='object')S.me={};S.me.target=S.me.target||{};S.me.days=S.me.days||{};if(!Array.isArray(S.fridge))S.fridge=[];if(!Array.isArray(S.diets))S.diets=[];addPresets()};
 const SELF=()=>S.mode==='self';
 let V={screen:'list',rec:null,day:0,res:-1,rcp:null,per:1,cj:0,date:dkey(new Date())};   /* 画面の状態（保存しない） */
 let MODE='i';
@@ -295,20 +296,20 @@ const Backup={key:'eiyo-bak',list(){try{return JSON.parse(localStorage.getItem(t
   auto(){const day=dkey(new Date()),L=this.list();if(L.length&&L[0].day===day)return;let j;try{j=localStorage.getItem(SK)}catch(e){}if(!j||j.length>1500000)return;
     L.unshift({day,at:Date.now(),json:j});while(L.length>3)L.pop();try{localStorage.setItem(this.key,JSON.stringify(L))}catch(e){try{localStorage.setItem(this.key,JSON.stringify(L.slice(0,1)))}catch(e2){}}},
   restore(k){const b=this.list()[k];if(!b)return;const mode=S.mode;S=Object.assign({tab:'set',seq:1,records:[],recipes:[],custom:[],portions:{},learned:{}},JSON.parse(b.json),{mode,tab:'set'});
-    S.records.concat(S.recipes,S.custom).forEach(x=>x.u=Date.now());fixS()}};
+    fixS();S.records.concat(S.recipes,S.custom,S.diets).forEach(x=>x.u=Date.now())}};
 const uid=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);   /* 端末をまたいでも重ならないID */
 /* 同期の突き合わせ用：記録・レシピ・マイ食品ごとに「最後に変えた時刻 u」を付け、消したものは S.del に残す */
 const Stamp={h:new Map(),
-  init(){this.h.clear();['records','recipes','custom'].forEach(k=>S[k].forEach(x=>{const u=x.u;delete x.u;this.h.set(x.id,JSON.stringify(x));x.u=u||0}))},
+  init(){this.h.clear();['records','recipes','custom','diets'].forEach(k=>S[k].forEach(x=>{const u=x.u;delete x.u;this.h.set(x.id,JSON.stringify(x));x.u=u||0}))},
   mark(){const now=Date.now(),seen=new Set();S.del=S.del||{};
-    ['records','recipes','custom'].forEach(k=>S[k].forEach(x=>{seen.add(x.id);const u=x.u;delete x.u;const j=JSON.stringify(x);x.u=this.h.get(x.id)===j?(u||0):now;this.h.set(x.id,j)}));
+    ['records','recipes','custom','diets'].forEach(k=>S[k].forEach(x=>{seen.add(x.id);const u=x.u;delete x.u;const j=JSON.stringify(x);x.u=this.h.get(x.id)===j?(u||0):now;this.h.set(x.id,j)}));
     for(const id of [...this.h.keys()])if(!seen.has(id)){S.del[id]=now;this.h.delete(id)}
     for(const id in S.del)if(seen.has(id))delete S.del[id]},
   /* 手元 L と相手 R を合わせる。同じIDは新しいほう、消した印が新しければ消す */
   merge(L,R){const del=Object.assign({},R.del||{});for(const id in L.del||{})del[id]=Math.max(del[id]||0,L.del[id]);
     const pick=k=>{const m=new Map();(R[k]||[]).forEach(x=>m.set(x.id,x));(L[k]||[]).forEach(x=>{const y=m.get(x.id);if(!y||(x.u||0)>=(y.u||0))m.set(x.id,x)});
       return [...m.values()].filter(x=>!(del[x.id]>=(x.u||0))).sort((a,b)=>(a.created||0)-(b.created||0))};
-    const newer=(L.updated||0)>=(R.updated||0)?L:R,o=Object.assign({},newer,{records:pick('records'),recipes:pick('recipes'),custom:pick('custom'),del,seq:Math.max(L.seq||1,R.seq||1),updated:Math.max(L.updated||0,R.updated||0)});
+    const newer=(L.updated||0)>=(R.updated||0)?L:R,o=Object.assign({},newer,{records:pick('records'),recipes:pick('recipes'),custom:pick('custom'),diets:pick('diets'),del,seq:Math.max(L.seq||1,R.seq||1),updated:Math.max(L.updated||0,R.updated||0)});
     return o}};
 Stamp.init();
 const save=()=>{Stamp.mark();Backup.auto();S.updated=Date.now();for(const k in S.me.days){const d=S.me.days[k];if(k!==V.date&&!d.menus.length)delete S.me.days[k]}try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}Sync.push()};
@@ -349,9 +350,11 @@ function calc(it){
   const fr=it.fr==null?1:it.fr,q=it.g||0;
   if(it.dish){const r=S.recipes.find(x=>x.id===it.dish);if(!r){const b=blank();b.note='保存したレシピが見つかりません';return b}
     return acc(blank(),sumItems(r.items.filter(x=>!x.dish)),q/Math.max(1,r.servings||1)*fr)}
+  if(it.pv){const d=S.diets.find(x=>x.id===it.pv),b=blank();if(!d){b.note='提供食の登録が見つかりません';return b}
+    const sm=it.sm==null?1:it.sm,sf=it.sf==null?1:it.sf;for(let j=0;j<NN;j++)b.v[j]=(d.main[j]||0)*sm+(d.side[j]||0)*sf;b.v[24]=b.v[1];b.v[25]=b.v[2];return b}
   if(it.ext){const b=blank(),e=it.ext.v,k=q*fr;b.v[0]=e[0]*k;b.v[1]=e[1]*k;b.v[2]=e[2]*k;b.v[3]=e[3]*k;b.v[5]=e[4]*k;b.v[24]=b.v[1];b.v[25]=b.v[2];b.ext=true;return b}
   if(it.cu){const c=S.custom.find(x=>x.id===it.cu),b=blank();if(!c){b.note='マイ食品が見つかりません';return b}
-    const k=(c.basis==='g'?q/100:q)*fr;for(let j=0;j<NN;j++)b.v[j]=(c.v[j]||0)*k;b.v[24]=b.v[1];b.v[25]=b.v[2];if(c.basis==='g')b.gg.mf=q*fr;return b}
+    const k=(c.basis==='u'?q:q/100)*fr;for(let j=0;j<NN;j++)b.v[j]=(c.v[j]||0)*k;b.v[24]=b.v[1];b.v[25]=b.v[2];if(c.basis==='g')b.gg.mf=q*fr;return b}
   const B=basis(it),f=F[B.v],rf=F[B.rf][2],b=blank();b.note=B.note;
   const w=q*(it.r?1-rf/100:1)*B.rate/100*fr;   /* 食べた状態の重さ(g) */
   if(it.r&&rf>0)b.note=(b.note?b.note+'／':'')+'廃棄率'+rf+'%を差し引き';
@@ -398,7 +401,7 @@ const fmt=(x,d)=>d?(+x).toFixed(d):r0(x);
 
 /* ---------- 目安量 ---------- */
 const PRE='小さじ|大さじ|計量カップ|カップ|お茶碗|茶碗|小盛り|中盛り|大盛り|コップ|グラス|おちょこ|お猪口|中ジョッキ|大ジョッキ|ジョッキ|銚子|とっくり|徳利|中びん|大びん|中瓶|大瓶|びん|瓶|ボトル|シングル|ダブル|スライス|缶';
-const SUF='グラム|kg|g|ml|cc|リットル|l|合|個|玉|枚|本|杯|丁|パック|缶|膳|食|人分|人前|切れ|束|袋|房|尾|匹|片|かけ|株|把|つ';
+const SUF='グラム|kg|g|ml|cc|リットル|l|合|貫|個|玉|枚|本|杯|丁|パック|缶|膳|食|人分|人前|切れ|束|袋|房|尾|匹|片|かけ|株|把|つ';
 const QRE=new RegExp('('+PRE+')?\\s*(\\d+(?:\\.\\d+)?(?:/\\d+(?:\\.\\d+)?)?|半(?=\\s*(?:'+SUF+')))\\s*('+SUF+')?\\s*$','i');
 const QRE1=new RegExp('\\s('+PRE+')\\s*$');
 const ML={ml:1,cc:1,l:1000,'リットル':1000,'合':180},SPOON={'小さじ':5,'大さじ':15,'カップ':200,'計量カップ':200};
@@ -475,6 +478,7 @@ function chainSearch(text,max,nameOnly){
 const extOf=(ci,mi)=>{const c=D.c[ci],m=c.m[mi];return{c:c.n,m:m[0],s:m[1],v:m.slice(2)}};
 function search(text){
   const P=parse(text),out=[];if(!P.toks.length)return{P,out};
+  if(MODE==='i')S.diets.forEach(d=>{if(P.raw&&norm(d.name).includes(P.raw))out.push({pv:d.id})});
   S.custom.forEach(c=>{if(P.raw&&norm(c.name).includes(P.raw))out.push({cu:c.id})});
   if(MODE==='i')S.recipes.forEach(d=>{if(P.raw&&d.name&&((d.preset?norm(d.name)===P.raw:norm(d.name).includes(P.raw))||(d.aka||[]).some(a=>norm(a)===P.raw)))out.push({dish:d.id})});
   const chHits=MODE==='i'&&S.tab!=='fr'?chainSearch(P.text,8):[];
@@ -508,18 +512,19 @@ function search(text){
 function segHTML(name,opts,val){return opts.map(([v,l])=>`<label><input type="radio" name="${name}" value="${esc(v)}"${String(v)===String(val)?' checked':''}><span>${esc(l)}</span></label>`).join('')}
 const extName=e=>e.c+' '+e.m+(e.s?'（'+e.s+'）':'');
 const frText=f=>f===0.5?'半分食べた':f===0?'残した':Math.round(f*100)+'%食べた';
-const itemName=it=>it.ext?extName(it.ext):it.al?it.al:it.dish?((S.recipes.find(x=>x.id===it.dish)||{}).name||'（削除されたレシピ）'):it.cu?((S.custom.find(x=>x.id===it.cu)||{}).name||'（削除されたマイ食品）'):dispName(IDX[it.id]);
+const itemName=it=>it.pv?((S.diets.find(x=>x.id===it.pv)||{}).name||'（削除された提供食）'):it.ext?extName(it.ext):it.al?it.al:it.dish?((S.recipes.find(x=>x.id===it.dish)||{}).name||'（削除されたレシピ）'):it.cu?((S.custom.find(x=>x.id===it.cu)||{}).name||'（削除されたマイ食品）'):dispName(IDX[it.id]);
 function itemAmount(it){
   if(it.g==null)return'量を入力';
   if(it.ext)return it.g+' 品';
-  if(it.dish)return it.g+' 人分';
-  if(it.cu){const c=S.custom.find(x=>x.id===it.cu);return c&&c.basis==='u'?it.g+' × '+(c.unit||'1食'):it.g+' g'}
+  if(it.dish)return it.g+' '+((S.recipes.find(x=>x.id===it.dish)||{}).unit||'人分');
+  if(it.pv)return '主食'+Math.round((it.sm==null?1:it.sm)*10)+'割・副食'+Math.round((it.sf==null?1:it.sf)*10)+'割';
+  if(it.cu){const c=S.custom.find(x=>x.id===it.cu);return c&&c.basis==='u'?it.g+' × '+(c.unit||'1食'):it.g+(c&&c.basis==='ml'?' mL':' g')}
   return (it.pl?it.pl+'　':'')+it.g+' g';
 }
 function itemRow(it){
   const c=calc(it),parts=[];
-  if(!it.dish&&!it.cu&&!it.ext){const i=IDX[it.id],st=stateOf(i);if(it.al)parts.push(dispName(i));if(st)parts.push(st+(isCooked(i)?(it.t==='a'?'・調理後の重さ':'・調理前の重さ'):''))}
-  else parts.push(it.ext?'チェーン店':it.dish?'レシピ':'マイ食品');
+  if(!it.dish&&!it.cu&&!it.ext&&!it.pv){const i=IDX[it.id],st=stateOf(i);if(it.al)parts.push(dispName(i));if(st)parts.push(st+(isCooked(i)?(it.t==='a'?'・調理後の重さ':'・調理前の重さ'):''))}
+  else parts.push(it.pv?'提供食':it.ext?'チェーン店':it.dish?'レシピ':'マイ食品');
   parts.push(itemAmount(it));
   if(it.fr!=null&&it.fr!==1)parts.push(frText(it.fr));
   if(it.tmp)parts.push('調理法は仮');
@@ -635,6 +640,9 @@ function viewResult(){
   if(W&&(vk==='mal'||vk==='ckd')){body.push(row('体重1 kgあたりのエネルギー',r1(a.v[0]/W)+' kcal','現体重 '+W+' kg'));body.push(row('体重1 kgあたりのたんぱく質',(Math.round(a.v[1]/W*100)/100).toFixed(2)+' g','現体重 '+W+' kg'))}
   const cj=CJ.some(c=>c[0]===V.cj)?V.cj:0,C=contrib(days,cj,d<0?Math.max(1,a.n||1):1),ctot=C.reduce((x,y)=>x+y[1],0),[,cn,cu,cd]=NUT[cj];
   const veg=a.gg['06']||0,fru=a.gg['07']||0,alc=a.v[21];
+  const RT={oral:[0,0,0],en:[0,0,0],pn:[0,0,0]},dn=d<0?Math.max(1,a.n||1):1;days.forEach(x=>x.menus.forEach(m=>m.items.forEach(it=>{const c=calc(it),rt=it.cu?((S.custom.find(z=>z.id===it.cu)||{}).route||'oral'):'oral';RT[rt][0]+=c.v[0]/dn;RT[rt][1]+=c.v[1]/dn;RT[rt][2]+=c.v[20]/dn})));
+  const routeHTML=RT.en[0]+RT.pn[0]+RT.en[2]+RT.pn[2]>0?`<section><div class="ghead"><span class="footnote sec">投与経路別</span></div><div class="group">${Object.keys(ROUTES).map(k=>`<div class="row"><span class="grow">${ROUTES[k]}<span class="subhead sec num">たんぱく質 ${r1(RT[k][1])} g　水分 ${r0(RT[k][2])} g</span></span><span class="val num">${r0(RT[k][0])} kcal</span></div>`).join('')}</div>
+  <div class="gfoot footnote sec">上の「摂取量」は、経口・経腸栄養・静脈栄養の合計です。マイ食品で投与経路を選んだものを分けて集計しています。経腸栄養剤・輸液の水分は、登録した値をそのまま使います。</div></section>`:'';
   const pr=r.self?null:prevRec(r);let prevHTML='';
   if(pr){const b=recAgg(pr,pr.days.length>1?-1:0).v,w0=+(pr.target||{}).w,sg=x=>(x>0?'+':'')+x;
     const dr=(l,j,dg,u)=>row(l,sg(dg?Math.round((a.v[j]-b[j])*10)/10:Math.round(a.v[j]-b[j]))+' '+u,'前回 '+fmt(b[j],dg)+' '+u+' → 今回 '+fmt(a.v[j],dg)+' '+u);
@@ -650,6 +658,7 @@ function viewResult(){
     <section><div class="ghead"><span class="footnote sec">${d<0?(a.n||0)+'日間の平均':'摂取量'}${vk==='std'?'':'（'+VW[0]+'の表示）'}</span></div><div class="group">${nutRows(a.v,tg,VW[1])}${body.join('')}</div>
     <div class="gfoot footnote sec">${tg.notes.length?tg.notes.map(esc).join('<br>'):'目標を設定すると、目標との比較が出ます。'}${vk==='lip'?'<br>飽和脂肪酸は、成分表の本表に列がなく（脂肪酸成分表編に収載）、まだ計算に入れていません。':''}${(vk==='mal'||vk==='ckd')&&!W?'<br>目標の設定で体重を入れると、体重1 kgあたりの量が出ます。':''}${vk==='std'?'':'<br>表示の切り替えは並びを変えるだけで、疾患ごとの基準値は入れていません。'}</div></section>
     <button class="btn gray block" id="setTarget">目標を設定</button>
+    ${routeHTML}
     ${prevHTML}
     ${pfcHTML(a.v,tg)}
     ${C.length?`<section><div class="ghead"><span class="footnote sec">どこから来ているか</span></div><div class="group"><div class="rowin noprint" style="padding-inline-start:var(--pad)"><label for="cjSel" style="flex:1;min-width:0">栄養素</label><select class="input" style="flex:none;width:auto" id="cjSel">${CJ.map(c=>`<option value="${c[0]}"${c[0]===cj?' selected':''}>${c[1]}</option>`).join('')}</select></div>${C.slice(0,8).map(([k,v])=>`<div class="row"><span class="grow"><span class="wrap">${esc(k)}</span><span class="meter" role="img" aria-label="${r0(v/ctot*100)}%"><span style="width:${Math.min(100,v/ctot*100)}%"></span></span></span><span class="val num">${fmt(v,cd)} ${cu}<span class="subhead sec">　${r0(v/ctot*100)}%</span></span></div>`).join('')}</div>
@@ -744,10 +753,20 @@ function drawFridge(){
   <button class="btn destructive block gray" id="del">使い切った・捨てた（この行を削除）</button>`);
 }
 function viewMy(){
-  const rows=S.custom.map(c=>`<button class="row" data-cu="${c.id}"><span class="grow"><span class="wrap">${esc(c.name)}</span><span class="subhead sec">${c.basis==='g'?'100 gあたり':esc(c.unit||'1食')+'あたり'}</span></span><span class="val num">${r0(c.v[0]||0)} kcal</span></button>`).join('');
+  const rows=S.custom.map(c=>`<button class="row" data-cu="${c.id}"><span class="grow"><span class="wrap">${esc(c.name)}</span><span class="subhead sec">${esc(cuBasis(c))}${c.route&&c.route!=='oral'?'　'+ROUTES[c.route]:''}</span></span><span class="val num">${r0(c.v[0]||0)} kcal</span></button>`).join('');
+  const drows=S.diets.map(d=>`<button class="row" data-diet="${d.id}"><span class="grow"><span class="wrap">${esc(d.name)}</span><span class="subhead sec num">主食 ${r0(d.main[0]||0)} kcal・副食 ${r0(d.side[0]||0)} kcal</span></span><span class="val num">${r0((d.main[0]||0)+(d.side[0]||0))} kcal</span></button>`).join('');
   return `<h1 class="large">マイ食品</h1><div class="stack narrow"><button class="btn primary block" id="newCu">新しいマイ食品</button>
-  ${rows?`<div class="group">${rows}</div>`:emptyNote('成分表にない市販品や外食を、栄養成分表示の値で登録します。登録した食品は、記録やレシピで名前を入力すると候補に出ます。')}</div>`;
+  ${rows?`<div class="group">${rows}</div>`:emptyNote('成分表にない市販品や外食、経腸栄養剤、輸液を、表示の値で登録します。登録したものは、記録やレシピで名前を入力すると候補に出ます。')}
+  <section><div class="ghead"><h2 class="headline" style="margin:0">提供食（食種）</h2></div><div class="stack" style="gap:8px"><button class="btn gray block" id="newDiet">新しい食種</button>
+  ${drows?`<div class="group">${drows}</div>`:''}</div>
+  <div class="gfoot footnote sec">食種ごとに、1食あたりの主食と副食の栄養量を登録します。記録で食種名を入力し、主食と副食を食べた割合（0〜10割）を選ぶと、摂取量が出ます。朝・昼・夕で内容が違う場合は、「常食 朝」のように分けて登録します。</div></section></div>`;
 }
+function openDiet(id){const d=S.diets.find(x=>x.id===id);cur=d?JSON.parse(JSON.stringify(d)):{id:null,name:'',main:zero(),side:zero()};sheetKind='diet';drawDiet();$('sheet').showModal()}
+function drawDiet(){const d=cur,grp=(k,lab)=>`<div class="field"><span class="footnote sec flabel">${lab}（1食あたり）</span><div class="group">${CUF.map(([j,l])=>numField('d_'+k+j,l,d[k][j]||'')).join('')}</div></div>`;
+  $('sheet').innerHTML=sheetShell(d.id?'食種を編集':'新しい食種',`<div class="field"><label class="footnote sec" for="d_name">食種の名前</label><input class="input" id="d_name" placeholder="例：常食 1800 昼" value="${esc(d.name)}"></div>
+  ${grp('main','主食')}${grp('side','副食')}<p class="footnote sec note">分からない項目は空欄のままにします。空欄は0として計算します。</p>
+  ${d.id?'<button class="btn destructive block gray" id="delDiet">この食種を削除</button>':''}`)}
+const readDiet=()=>{if($('d_name'))cur.name=$('d_name').value.trim();['main','side'].forEach(k=>CUF.forEach(([j])=>{const v=numOf('d_'+k+j);cur[k][j]=v==null?0:v}))};
 function viewSet(){
   const other=SELF()?'pro':'self';
   return `<h1 class="large">設定</h1><div class="stack narrow">
@@ -788,7 +807,7 @@ function renderSug(inp){
   if(segs.length>1){const hs=segs.map(sg=>{const R=search(sg);return{sg,R,o:R.out[0]}});box._r={multi:true};
     box.innerHTML=hs.map(h=>{if(!h.o)return `<div class="row" style="border-top:1px solid var(--sep)"><span class="grow"><span class="wrap">${esc(h.sg)}</span><span class="subhead sec">見つかりません（入力欄に残ります）</span></span></div>`;
       const o=h.o,P=h.R.P;let name,amt;
-      if(o.ch!=null){name=extName(extOf(o.ch,o.mi));amt=numTxt(P.qty?P.qty.num:1)+' 品'}else if(o.dish){name=S.recipes.find(x=>x.id===o.dish).name;amt=numTxt(P.qty&&!(P.g>=10)?P.qty.num:1)+' 人分'}else if(o.cu){name=S.custom.find(x=>x.id===o.cu).name;amt=P.qty?numTxt(P.qty.num):''}
+      if(o.pv){name=S.diets.find(x=>x.id===o.pv).name;amt='全量'}else if(o.ch!=null){name=extName(extOf(o.ch,o.mi));amt=numTxt(P.qty?P.qty.num:1)+' 品'}else if(o.dish){name=S.recipes.find(x=>x.id===o.dish).name;amt=numTxt(P.qty&&!(P.g>=10)?P.qty.num:1)+' 人分'}else if(o.cu){name=S.custom.find(x=>x.id===o.cu).name;amt=P.qty?numTxt(P.qty.num):''}
       else{name=(o.al?o.al+'（'+dispName(o.idx)+'）':dispName(o.idx));const R=resolveQty(P.qty,o.idx);amt=R?R.g+' g':'量は後で入力'}
       return `<div class="row" style="border-top:1px solid var(--sep)"><span class="grow"><span class="wrap">${esc(name)}</span></span><span class="val subhead sec num">${esc(amt)}</span></div>`}).join('')
       +(hs.some(h=>h.o)?`<div style="padding:8px var(--pad);border-top:1px solid var(--sep)"><button class="btn primary block" data-multi="${key}">${hs.filter(h=>h.o).length}件をまとめて追加</button></div>`:'');return}
@@ -796,12 +815,13 @@ function renderSug(inp){
   if(!out.length){box.innerHTML=`<p class="footnote sec note" style="padding-block:8px">該当する食品が見つかりません。別の呼び方で試すか、マイ食品に登録してください。</p>`;return}
   box.innerHTML=out.map((o,n)=>{
     let name,sub;
-    if(o.ch!=null){const e=extOf(o.ch,o.mi);name=extName(e);sub='チェーン店　1品 '+r0(e.v[0])+' kcal'}
+    if(o.pv){const d=S.diets.find(x=>x.id===o.pv);name=d.name;sub='提供食　全量で '+r0((d.main[0]||0)+(d.side[0]||0))+' kcal（割合は次の画面で）'}
+    else if(o.ch!=null){const e=extOf(o.ch,o.mi);name=extName(e);sub='チェーン店　1品 '+r0(e.v[0])+' kcal'}
     else if(o.dish){const d=S.recipes.find(x=>x.id===o.dish);name=d.name;sub=(d.preset?'定番料理（分量は仮の目安）':'保存したレシピ')+'　1人分 '+r0(sumItems(d.items).v[0]/Math.max(1,d.servings||1))+' kcal'}
-    else if(o.cu){const c=S.custom.find(x=>x.id===o.cu);name=c.name;sub='マイ食品　'+(c.basis==='g'?'100 gあたり ':(c.unit||'1食')+'あたり ')+r0(c.v[0]||0)+' kcal'}
+    else if(o.cu){const c=S.custom.find(x=>x.id===o.cu);name=c.name;sub='マイ食品　'+cuBasis(c)+' '+r0(c.v[0]||0)+' kcal'+(c.route&&c.route!=='oral'?'　'+ROUTES[c.route]:'')}
     else{const f=F[o.idx],st=stateOf(o.idx);name=o.al||dispName(o.idx);sub=(o.al?dispName(o.idx)+'　':'')+(st?st+(o.tmp?'（仮）':'')+'　':'')+'100 gあたり '+f[3]+' kcal'}
     let right='';
-    if(P.qty){if(o.ch!=null)right=numTxt(P.qty.num)+' 品';else if(o.dish)right=(P.g>=10?'1':numTxt(P.qty.num))+' 人分';else if(o.cu)right=numTxt(P.qty.num)+((S.custom.find(x=>x.id===o.cu)||{}).basis==='u'?' 個分':' g');
+    if(P.qty&&!o.pv){if(o.ch!=null)right=numTxt(P.qty.num)+' 品';else if(o.dish)right=(P.g>=10?'1':numTxt(P.qty.num))+' 人分';else if(o.cu){const cb=(S.custom.find(x=>x.id===o.cu)||{}).basis;right=numTxt(P.qty.num)+(cb==='u'?' 個分':cb==='ml'?' mL':' g')}
       else{const R=resolveQty(P.qty,o.idx);right=R?(R.pl?R.pl+'<br>':'')+R.g+' g':'量は次の画面で'}}
     return `<button class="row" data-pick="${n}" data-key="${key}" style="border-top:1px solid var(--sep)"><span class="grow"><span class="wrap">${esc(name)}</span><span class="subhead sec">${esc(sub)}</span></span>${right?`<span class="val subhead sec num" style="white-space:normal;max-width:45%">${right}</span>`:''}</button>`}).join('');
 }
@@ -814,6 +834,7 @@ function targetList(key){   /* 追加先の配列を返す（必要ならメニ�
 }
 function makeItem(o,P,key){
   const qn=P.qty?P.qty.num:null;
+  if(o.pv)return{n:S.seq++,pv:o.pv,g:1,sm:1,sf:1,fresh:true};
   const it=o.ch!=null?{n:S.seq++,ext:extOf(o.ch,o.mi),g:qn!=null?qn:1}:o.dish?{n:S.seq++,dish:o.dish,g:qn!=null&&!(P.g>=10)?qn:1}:o.cu?{n:S.seq++,cu:o.cu,g:qn!=null?qn:((S.custom.find(x=>x.id===o.cu)||{}).basis==='u'?1:null)}
     :{n:S.seq++,id:F[o.idx][0],g:null,t:MODE==='i'?'a':'b',r:false,tmp:o.tmp};
   if(!o.dish&&!o.cu&&o.ch==null){if(o.al)it.al=o.al;const R=resolveQty(P.qty,o.idx);if(R)applyPortion(it,R);else if(P.qty&&(P.qty.pre||P.qty.suf))it.pq={num:P.qty.num,u:unitLabel(P.qty)}}
@@ -831,7 +852,7 @@ function pick(key,n){
   T.items.push(it);save();render();
   const row=document.querySelector(`[data-edit="${it.n}"]`);if(row)row.classList.add('new');
   const st=document.querySelector(`[data-st="${T.key}"]`);if(st){st.hidden=false;st.textContent='追加しました：'+itemName(it)+'　'+itemAmount(it)}
-  if(it.g==null)openSheet(it.n);else{const inp=document.querySelector(`[data-add="${T.key}"]`);if(inp)inp.focus()}
+  if(it.g==null||it.fresh){delete it.fresh;openSheet(it.n)}else{const inp=document.querySelector(`[data-add="${T.key}"]`);if(inp)inp.focus()}
 }
 /* 読点・カンマ・改行で区切った文を、まとめて追加する。見つからなかった部分は入力欄に残す */
 const segsOf=v=>String(v).split(/[、，,\n]+/).map(x=>x.trim()).filter(Boolean);
@@ -861,9 +882,13 @@ function openSheet(n){const f=findItem(n);if(!f)return;cur=Object.assign({},f.l[
 function drawSheet(){
   if(S.tab==='fr')return drawFridge();
   const it=cur;let body='';
+  if(it.pv){const o=v=>[10,9,8,7,6,5,4,3,2,1,0].map(k=>`<option value="${k/10}"${Math.abs((v==null?1:v)-k/10)<0.001?' selected':''}>${k}割</option>`).join(''),c=calc(it);
+    $('sheet').innerHTML=sheetShell(itemName(it),`<div class="group"><div class="rowin" style="padding-inline-start:var(--pad)"><label for="pvM" style="flex:1;min-width:0">主食を食べた割合</label><select class="input" style="flex:none;width:auto" id="pvM">${o(it.sm)}</select></div><div class="rowin" style="padding-inline-start:var(--pad)"><label for="pvS" style="flex:1;min-width:0">副食を食べた割合</label><select class="input" style="flex:none;width:auto" id="pvS">${o(it.sf)}</select></div></div>
+    <div class="group"><div class="row"><span class="grow">エネルギー</span><span class="val num">${r0(c.v[0])} kcal</span></div><div class="row"><span class="grow">たんぱく質</span><span class="val num">${r1(c.v[1])} g</span></div></div>
+    <button class="btn destructive block gray" id="del">この行を削除</button>`);return}
   const frac=`<div class="field"><span class="footnote sec flabel" id="frlab">食べた割合</span><div class="seg" role="radiogroup" aria-labelledby="frlab">${segHTML('fr',[[1,'全部'],[0.5,'半分'],[0,'残した']],it.fr==null?1:it.fr)}</div><div class="group"><div class="rowin" style="padding-inline-start:var(--pad)"><label for="frSel" style="flex:1;min-width:0">10%きざみで選ぶ</label><select class="input" style="flex:none;width:auto" id="frSel">${[10,9,8,7,6,5,4,3,2,1,0].map(k=>`<option value="${k/10}"${Math.abs((it.fr==null?1:it.fr)-k/10)<0.001?' selected':''}>${k*10}%</option>`).join('')}</select></div></div><span class="footnote sec flabel">麺の汁やかけた調味料など、残した分を差し引きます。</span></div>`;
   if(it.dish||it.cu||it.ext){
-    const c=it.cu&&S.custom.find(x=>x.id===it.cu),unit=it.ext?'数。半分なら0.5':it.dish?'人分':c&&c.basis==='u'?(c.unit||'1食')+'の数':'g';
+    const c=it.cu&&S.custom.find(x=>x.id===it.cu),unit=it.ext?'数。半分なら0.5':it.dish?'人分':c&&c.basis==='u'?(c.unit||'1食')+'の数':c&&c.basis==='ml'?'mL':'g';
     body=`<div class="field"><label class="footnote sec" for="amt">量（${esc(unit)}）</label><input class="input num" id="amt" inputmode="decimal" value="${it.g==null?'':it.g}"></div>`+((S.tab==='rec'||S.tab==='day')?frac:'');
   }else{
     const i=IDX[it.id],g=grp(i),c=calc(it),B=basis(it),used=B.v,pk=pkey(i),ps=S.portions[pk]||[],PL=portionsFor(i);
@@ -910,7 +935,9 @@ function drawTarget(){
   <button class="btn destructive block gray" id="clearTarget">目標をすべて消す</button>`);
 }
 const readTarget=()=>{[['age','t_age'],['h','t_h'],['w','t_w'],['af','t_af'],['sf','t_sf'],['kk','t_kk'],['ef','t_ef'],['bmi','t_bmi'],['ek','t_ek'],['pk','t_pk'],['salt','t_salt']].forEach(([k,id])=>{if($(id)){const v=numOf(id);cur[k]=v==null?'':v}})};
-const CUF=[[0,'エネルギー（kcal）'],[1,'たんぱく質（g）'],[2,'脂質（g）'],[3,'炭水化物（g）'],[5,'食塩相当量（g）'],[4,'食物繊維（g）']];
+const CUF=[[0,'エネルギー（kcal）'],[1,'たんぱく質（g）'],[2,'脂質（g）'],[3,'炭水化物（g）'],[5,'食塩相当量（g）'],[4,'食物繊維（g）'],[20,'水分（g）'],[6,'カリウム（mg）'],[9,'リン（mg）']];
+const ROUTES={oral:'経口',en:'経腸栄養',pn:'静脈栄養'};
+const cuBasis=c=>c.basis==='g'?'100 gあたり':c.basis==='ml'?'100 mLあたり':(c.unit||'1食')+'あたり';
 function openCustom(id){
   const c=S.custom.find(x=>x.id===id);cur=c?JSON.parse(JSON.stringify(c)):{id:null,name:'',basis:'g',unit:'',v:zero()};sheetKind='custom';drawCustom();$('sheet').showModal();
 }
@@ -918,10 +945,12 @@ function drawCustom(){
   const c=cur;
   $('sheet').innerHTML=sheetShell(c.id?'マイ食品を編集':'新しいマイ食品',`
   <div class="field"><label class="footnote sec" for="c_name">名前</label><input class="input" id="c_name" placeholder="例：〇〇のおにぎり 鮭" value="${esc(c.name)}"></div>
-  <div class="field"><span class="footnote sec flabel" id="bsl">栄養成分表示の基準</span><div class="seg" role="radiogroup" aria-labelledby="bsl">${segHTML('basis',[['g','100 gあたり'],['u','1食あたり']],c.basis)}</div>
+  <div class="field"><span class="footnote sec flabel" id="bsl">栄養成分表示の基準</span><div class="seg" role="radiogroup" aria-labelledby="bsl">${segHTML('basis',[['g','100 gあたり'],['ml','100 mLあたり'],['u','1食あたり']],c.basis)}</div>
   ${c.basis==='u'?`<input class="input" id="c_unit" aria-label="1食の呼び方" placeholder="1食の呼び方（例：1個、1袋）" value="${esc(c.unit||'')}">`:''}</div>
   <div class="group">${CUF.map(([j,l])=>numField('c_v'+j,l,c.v[j]||'')).join('')}</div>
   <p class="footnote sec note">表示にない項目は空欄のままにします。空欄は0として計算します。</p>
+  <div class="field"><span class="footnote sec flabel" id="rtl">投与経路</span><div class="seg" role="radiogroup" aria-labelledby="rtl">${segHTML('route',Object.entries(ROUTES),c.route||'oral')}</div>
+  <span class="footnote sec flabel">経腸栄養剤や輸液は、製品の表示の値を「100 mLあたり」で登録し、記録では投与量（mL）を入れます。結果ページで経口と分けて集計し、合計にも入ります。</span></div>
   ${c.id?'<button class="btn destructive block gray" id="delCu">このマイ食品を削除</button>':''}`);
 }
 const readCustom=()=>{if($('c_name'))cur.name=$('c_name').value.trim();if($('c_unit'))cur.unit=$('c_unit').value.trim();CUF.forEach(([j])=>{const v=numOf('c_v'+j);cur.v[j]=v==null?0:v})};
@@ -932,6 +961,8 @@ function commit(){
       const ex=L.find(x=>x.label===cur.pq.u);if(ex)ex.g=g1;else L.push({label:cur.pq.u,g:g1});cur.pl=(cur.pq.num===1?'':numTxt(cur.pq.num)+' × ')+cur.pq.u;delete cur.pq}
     delete cur.nolearn;if(f){cur.tmp=false;f.l[f.k]=cur}}
   else if(sheetKind==='target'){readTarget();if(SELF())S.me.target=cur;else curRec().target=cur}
+  else if(sheetKind==='diet'){readDiet();if(!cur.name){$('d_name').focus();return}
+    if(cur.id){const k=S.diets.findIndex(x=>x.id===cur.id);S.diets[k]=cur}else{cur.id=uid('v');S.diets.push(cur)}}
   else if(sheetKind==='custom'){readCustom();if(!cur.name){$('c_name').focus();return}
     if(cur.id){const k=S.custom.findIndex(x=>x.id===cur.id);S.custom[k]=cur}else{cur.id=uid('c');S.custom.push(cur)}}
   save();render();$('sheet').close();
@@ -1015,7 +1046,7 @@ const karteText=()=>{const V2=karteVars();return (S.karte||KARTE_DEF).replace(/\
 function csvOfRecord(){
   const r=curRec(),q=x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"',ids=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,22,14,15,16,17,18,19,23,20,21],L=[];
   L.push(['番号','記録日','日','食事','メニュー','食品','食品番号','量','単位','食べた割合'].concat(ids.map(j=>NUT[j][1]+'('+NUT[j][2]+')')).map(q).join(','));
-  r.days.forEach((x,di)=>x.menus.forEach(m=>m.items.forEach(it=>{const c=calc(it);L.push([r.label||'',r.self?V.date:recDate(r),di+1,MEALS[m.meal],m.name||'',itemName(it),it.id||'',it.g==null?'':it.g,it.ext?'品':it.dish?'人分':it.cu&&(S.custom.find(z=>z.id===it.cu)||{}).basis==='u'?'個':'g',it.fr==null?1:it.fr].concat(ids.map(j=>Math.round(c.v[j]*100)/100)).map(q).join(','))})));
+  r.days.forEach((x,di)=>x.menus.forEach(m=>m.items.forEach(it=>{const c=calc(it);L.push([r.label||'',r.self?V.date:recDate(r),di+1,MEALS[m.meal],m.name||'',itemName(it),it.id||'',it.g==null?'':it.g,it.pv?'食':it.ext?'品':it.dish?'人分':it.cu&&(S.custom.find(z=>z.id===it.cu)||{}).basis==='u'?'個':it.cu&&(S.custom.find(z=>z.id===it.cu)||{}).basis==='ml'?'mL':'g',it.fr==null?1:it.fr].concat(ids.map(j=>Math.round(c.v[j]*100)/100)).map(q).join(','))})));
   r.days.forEach((x,di)=>{const a=dayAgg(x);L.push([r.label||'',r.self?V.date:recDate(r),di+1,'合計','','','','','',''].concat(ids.map(j=>Math.round(a.v[j]*100)/100)).map(q).join(','))});
   return L.join('\r\n');
 }
@@ -1061,6 +1092,8 @@ document.addEventListener('change',e=>{
   else if(t.name==='sex'){readTarget();cur.sex=t.value}
   else if(t.name==='em'){readTarget();cur.em=t.value;drawTarget()}
   else if(t.name==='basis'){readCustom();cur.basis=t.value;drawCustom()}
+  else if(t.name==='route'){readCustom();cur.route=t.value}
+  else if(t.id==='pvM'||t.id==='pvS'){cur[t.id==='pvM'?'sm':'sf']=+t.value;drawSheet()}
 });
 document.addEventListener('click',e=>{
   if(e.target===$('sheet')){$('sheet').close();return}
@@ -1111,6 +1144,9 @@ document.addEventListener('click',e=>{
   else if(b.id==='rcpConfirm'){V.per=1;V.screen='rcpres';render();window.scrollTo(0,0)}
   else if(b.id==='delRcp')ask('このレシピを削除しますか？','記録の中でこのレシピを使った行は、計算できなくなります。',[{l:'削除',d:1,f:()=>{S.recipes=S.recipes.filter(r=>r.id!==V.rcp);V.screen='rcplist'}},CANCEL]);
   else if(b.id==='newCu')openCustom(null);
+  else if(b.id==='newDiet')openDiet(null);
+  else if(ds.diet)openDiet(ds.diet);
+  else if(b.id==='delDiet'){Undo.take();S.diets=S.diets.filter(x=>x.id!==cur.id);save();render();$('sheet').close();Undo.show('食種を削除しました')}
   else if(ds.cu)openCustom(ds.cu);
   else if(b.id==='delCu'){Undo.take();S.custom=S.custom.filter(x=>x.id!==cur.id);save();render();$('sheet').close();Undo.show('マイ食品を削除しました')}
   else if(b.id==='sIn'||b.id==='sUp'){const em=$('sEmail').value.trim(),pw=$('sPw').value;if(!em||!pw){$('syncMsg').textContent='メールアドレスとパスワードを入力してください。';return}
