@@ -168,7 +168,7 @@ if os.path.exists(_ci):
         CH.append({'aka': c.get('aka', []), 'n': c['name'], 'cat': c['cat'], 'src': c['src'], 'upd': c['updated'], 'got': c['fetched'],
                    'm': [[r[0], r[1]] + [float(x) for x in r[2:7]] for r in _r]})
 print('チェーン店:', [(c['n'], len(c['m'])) for c in CH])
-data = json.dumps({'c': CH, 'f': foods, 'g': groups, 'a': al, 'k': kj, 'd': dens, 'p': ports, 'src': SRC}, ensure_ascii=False, separators=(',', ':'))
+data = json.dumps({'ver': '日本食品標準成分表（八訂）増補2023年 第2章データ（2026年3月27日更新）', 'c': CH, 'f': foods, 'g': groups, 'a': al, 'k': kj, 'd': dens, 'p': ports, 'src': SRC}, ensure_ascii=False, separators=(',', ':'))
 assert '</' not in data
 html = open(f'{D}/template.html', encoding='utf-8').read().replace('/*DATA*/null', data)
 ROOT = os.path.dirname(D)                              # リポジトリの直下＝公開されるフォルダ

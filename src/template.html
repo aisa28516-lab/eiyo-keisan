@@ -146,6 +146,12 @@ dialog.alert{margin:auto;width:min(320px,calc(100% - 32px));border-radius:var(--
 #undo:not([hidden]){position:fixed;left:16px;right:16px;bottom:calc(var(--tap) + 20px + env(safe-area-inset-bottom,0px));z-index:6;max-width:480px;margin:0 auto;display:flex;align-items:center;gap:8px;padding:4px 4px 4px 16px;border-radius:var(--r);background:var(--label);color:var(--cell)}
 #undo .btn{color:inherit;font-weight:600}
 @media (min-width:900px){#undo:not([hidden]){bottom:16px}}
+@media print{
+  .tabbar,#undo,#modeLoad,.navrow,.btn,.seg,select,#viewSel{display:none!important}
+  .app{padding:0;max-width:none}body{background:#fff}.group{break-inside:avoid;border:1px solid #ccc}
+  .cols{grid-template-columns:1fr 1fr;column-gap:16px}:root{--f-body:400 10px/13px;--f-large:700 16px/20px;--f-headline:600 10px/13px;--f-subhead:400 8px/11px;--f-footnote:400 8px/11px;--f-title2:700 12px/15px;--tap:18px}
+  .row{padding:2px 8px;min-height:0}.stack,.cols{gap:6px}.meter{display:none}
+}
 input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent);flex:none}
 </style>
 
@@ -249,33 +255,31 @@ const Sync={msg:'',at:0,timer:0,busy:false,
     this.setAuth(Object.assign({},AUTH,{it:j.id_token,rt:j.refresh_token,exp:Date.now()+(+j.expires_in-60)*1000}));return AUTH.it;
   },
   url(){return 'https://firestore.googleapis.com/v1/projects/'+CFG.projectId+'/databases/(default)/documents/users/'+AUTH.uid+'/state/main'},
+  last:null,   /* 最後に確かめた相手側の更新時刻 */
+  async get(){const r=await fetch(this.url(),{headers:{Authorization:'Bearer '+await this.token()}});if(r.status===404)return null;if(!r.ok)throw new Error('読み込めませんでした（'+r.status+'）。');
+    const d=await r.json();return{up:+(d.fields&&d.fields.updated&&d.fields.updated.integerValue||0),t:JSON.parse(d.fields.json.stringValue)}},
+  async put(){const body=JSON.stringify(S);if(body.length>900000)throw new Error('データが大きすぎて同期できません。古い記録を削除してください。');
+    const r=await fetch(this.url(),{method:'PATCH',headers:{Authorization:'Bearer '+await this.token(),'Content-Type':'application/json'},body:JSON.stringify({fields:{json:{stringValue:body},updated:{integerValue:String(S.updated||0)}}})});
+    if(!r.ok)throw new Error('保存できませんでした（'+r.status+'）。');this.last=S.updated||0},
+  /* 相手側の内容を手元と1件ごとに突き合わせる。合わせた結果が相手側と違えば true */
+  mix(R){const tab=S.tab,mode=S.mode;Stamp.mark();S=Object.assign({tab,seq:1,records:[],recipes:[],custom:[],portions:{},learned:{}},Stamp.merge(S,R.t),{tab,mode});fixS();Stamp.init();
+    const same=JSON.stringify(Object.assign({},S,{tab:R.t.tab,mode:R.t.mode}))===JSON.stringify(R.t);S.updated=same?R.up:Math.max(S.updated||0,R.up)+1;
+    try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}
+    if(!$('sheet').open&&!$('alert').open)render();return !same},
   async pull(first){
     if(!this.on()||this.busy)return;this.busy=true;
-    try{
-      const r=await fetch(this.url(),{headers:{Authorization:'Bearer '+await this.token()}});
-      if(r.status===404){this.busy=false;await this.doPush();return}
-      if(!r.ok)throw new Error('読み込めませんでした（'+r.status+'）。');
-      const d=await r.json(),up=+(d.fields&&d.fields.updated&&d.fields.updated.integerValue||0);
-      if(first||up>(S.updated||0)){
-        const t=JSON.parse(d.fields.json.stringValue),tab=S.tab,mode=S.mode;
-        S=Object.assign({tab,seq:1,records:[],recipes:[],custom:[],portions:{},learned:{}},t,{tab,mode});fixS();
-        try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}
-        if(!$('sheet').open&&!$('alert').open)render();
-      }else if((S.updated||0)>up){this.busy=false;await this.doPush();return}
+    try{const R=await this.get();
+      if(!R)await this.put();
+      else if(first||R.up!==this.last||R.up!==(S.updated||0)){if(this.mix(R))await this.put();else this.last=R.up}
       this.at=Date.now();this.msg='';
     }catch(e){this.msg=e.message}
     this.busy=false;this.show();
   },
   push(){if(!this.on())return;clearTimeout(this.timer);this.timer=setTimeout(()=>this.doPush(),1500)},
   async doPush(){
-    if(!this.on())return;
-    try{
-      const body=JSON.stringify(S);if(body.length>900000)throw new Error('データが大きすぎて同期できません。古い記録を削除してください。');
-      const r=await fetch(this.url(),{method:'PATCH',headers:{Authorization:'Bearer '+await this.token(),'Content-Type':'application/json'},body:JSON.stringify({fields:{json:{stringValue:body},updated:{integerValue:String(S.updated||0)}}})});
-      if(!r.ok)throw new Error('保存できませんでした（'+r.status+'）。');
-      this.at=Date.now();this.msg='';
-    }catch(e){this.msg=e.message}
-    this.show();
+    if(!this.on())return;if(this.busy){this.push();return}this.busy=true;
+    try{const R=await this.get();if(R&&R.up!==this.last)this.mix(R);await this.put();this.at=Date.now();this.msg=''}catch(e){this.msg=e.message}
+    this.busy=false;this.show();
   },
   show(){const e=$('syncMsg');if(e)e.textContent=this.msg||(this.at?'最後の同期：'+new Date(this.at).toLocaleTimeString('ja-JP'):'')},
   idle(){const a=document.activeElement;return !$('sheet').open&&!$('alert').open&&!(a&&a.dataset&&a.dataset.add!=null&&a.value)}
@@ -286,7 +290,28 @@ const Undo={snap:null,timer:0,
   show(msg){if(!this.snap)return;$('undoMsg').textContent=msg;$('undo').hidden=false;clearTimeout(this.timer);this.timer=setTimeout(()=>this.hide(),8000)},
   hide(){$('undo').hidden=true;this.snap=null},
   back(){if(!this.snap)return;const mode=S.mode,tab=S.tab;S=Object.assign(JSON.parse(this.snap),{mode,tab});fixS();this.hide();save();render()}};
-const save=()=>{S.updated=Date.now();for(const k in S.me.days){const d=S.me.days[k];if(k!==V.date&&!d.menus.length)delete S.me.days[k]}try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}Sync.push()};
+/* 自動バックアップ：1日1回、その日の最初の変更の前の状態をこの端末に残す（3日分） */
+const Backup={key:'eiyo-bak',list(){try{return JSON.parse(localStorage.getItem(this.key)||'[]')}catch(e){return[]}},
+  auto(){const day=dkey(new Date()),L=this.list();if(L.length&&L[0].day===day)return;let j;try{j=localStorage.getItem(SK)}catch(e){}if(!j||j.length>1500000)return;
+    L.unshift({day,at:Date.now(),json:j});while(L.length>3)L.pop();try{localStorage.setItem(this.key,JSON.stringify(L))}catch(e){try{localStorage.setItem(this.key,JSON.stringify(L.slice(0,1)))}catch(e2){}}},
+  restore(k){const b=this.list()[k];if(!b)return;const mode=S.mode;S=Object.assign({tab:'set',seq:1,records:[],recipes:[],custom:[],portions:{},learned:{}},JSON.parse(b.json),{mode,tab:'set'});
+    S.records.concat(S.recipes,S.custom).forEach(x=>x.u=Date.now());fixS()}};
+const uid=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);   /* 端末をまたいでも重ならないID */
+/* 同期の突き合わせ用：記録・レシピ・マイ食品ごとに「最後に変えた時刻 u」を付け、消したものは S.del に残す */
+const Stamp={h:new Map(),
+  init(){this.h.clear();['records','recipes','custom'].forEach(k=>S[k].forEach(x=>{const u=x.u;delete x.u;this.h.set(x.id,JSON.stringify(x));x.u=u||0}))},
+  mark(){const now=Date.now(),seen=new Set();S.del=S.del||{};
+    ['records','recipes','custom'].forEach(k=>S[k].forEach(x=>{seen.add(x.id);const u=x.u;delete x.u;const j=JSON.stringify(x);x.u=this.h.get(x.id)===j?(u||0):now;this.h.set(x.id,j)}));
+    for(const id of [...this.h.keys()])if(!seen.has(id)){S.del[id]=now;this.h.delete(id)}
+    for(const id in S.del)if(seen.has(id))delete S.del[id]},
+  /* 手元 L と相手 R を合わせる。同じIDは新しいほう、消した印が新しければ消す */
+  merge(L,R){const del=Object.assign({},R.del||{});for(const id in L.del||{})del[id]=Math.max(del[id]||0,L.del[id]);
+    const pick=k=>{const m=new Map();(R[k]||[]).forEach(x=>m.set(x.id,x));(L[k]||[]).forEach(x=>{const y=m.get(x.id);if(!y||(x.u||0)>=(y.u||0))m.set(x.id,x)});
+      return [...m.values()].filter(x=>!(del[x.id]>=(x.u||0))).sort((a,b)=>(a.created||0)-(b.created||0))};
+    const newer=(L.updated||0)>=(R.updated||0)?L:R,o=Object.assign({},newer,{records:pick('records'),recipes:pick('recipes'),custom:pick('custom'),del,seq:Math.max(L.seq||1,R.seq||1),updated:Math.max(L.updated||0,R.updated||0)});
+    return o}};
+Stamp.init();
+const save=()=>{Stamp.mark();Backup.auto();S.updated=Date.now();for(const k in S.me.days){const d=S.me.days[k];if(k!==V.date&&!d.menus.length)delete S.me.days[k]}try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}Sync.push()};
 const newDay=()=>({menus:[],chk:[false,false,false,false]});
 if(FRESH&&!S.records.length){
   const it=(id,g)=>({n:S.seq++,id,g,t:'a',r:false});
@@ -515,11 +540,16 @@ function render(){
   $('view').innerHTML=f();
 }
 const emptyNote=t=>`<p class="sec note">${t}</p>`;
+const recDate=r=>r.date||dkey(new Date(r.created));
+/* 同じ番号の、ひとつ前の記録 */
+const prevRec=r=>r.label?S.records.filter(x=>x!==r&&x.id!==r.id&&x.label===r.label&&!x.example&&(recDate(x)<recDate(r)||(recDate(x)===recDate(r)&&x.created<r.created))).sort((a,b)=>recDate(b).localeCompare(recDate(a))||b.created-a.created)[0]:null;
 function viewList(){
-  const rows=S.records.slice().reverse().map(r=>{const n=r.days.reduce((a,d)=>a+d.menus.reduce((b,m)=>b+m.items.length,0),0);
-    return `<button class="row" data-open="${r.id}"><span class="grow"><span class="wrap">${esc(r.label||'（番号なし）')}</span><span class="subhead sec">${new Date(r.created).toLocaleDateString('ja-JP')}　${r.days.length}日分・${n}品${r.example?'　入力例':''}</span></span></button>`}).join('');
+  const G=new Map();S.records.slice().sort((a,b)=>recDate(b).localeCompare(recDate(a))||b.created-a.created).forEach(r=>{const k=r.label||'';if(!G.has(k))G.set(k,[]);G.get(k).push(r)});
+  const row=r=>{const n=r.days.reduce((a,d)=>a+d.menus.reduce((b,m)=>b+m.items.length,0),0),e=recAgg(r,r.days.length>1?-1:0).v[0];
+    return `<button class="row" data-open="${r.id}"><span class="grow"><span class="wrap">${esc(dlabel(recDate(r)))}</span><span class="subhead sec">${r.days.length}日分・${n}品${r.example?'　入力例':''}</span></span><span class="val num subhead sec">${n?r0(e)+' kcal':''}</span></button>`};
+  const secs=[...G.entries()].map(([k,rs])=>`<section><div class="ghead"><h2 class="headline" style="margin:0">${esc(k||'（番号なし）')}</h2>${k?`<button class="btn plain" data-again="${rs[0].id}">この番号で新しい記録</button>`:`<span class="footnote sec num">${rs.length}件</span>`}</div><div class="group">${rs.map(row).join('')}</div></section>`).join('');
   return `<h1 class="large">記録</h1><div class="stack narrow"><button class="btn primary block" id="newRec">新しい記録</button>
-  ${rows?`<div class="group">${rows}</div>`:emptyNote('「新しい記録」から、聞き取った食事を入力します。')}</div>`;
+  ${secs||emptyNote('「新しい記録」から、聞き取った食事を入力します。')}</div>`;
 }
 function menuHTML(m){
   return `<div class="group" data-menu="${m.n}"><div class="rowin"><input class="input headline" data-mname="${m.n}" aria-label="メニュー名" placeholder="メニュー名（例：野菜炒め）" value="${esc(m.name||'')}"><button class="btn plain" data-mdup="${m.n}">複製</button><button class="btn destructive plain" data-mdel="${m.n}">削除</button></div>${m.items.map(itemRow).join('')}${addField(m.n,'＋ 食材を追加（例：ごはん 150）')}</div>`;
@@ -548,6 +578,7 @@ function viewEdit(){
   const meals=mealsHTML(day);
   return `<div class="navrow"><button class="btn plain" data-back="list">‹ 記録</button><button class="btn plain destructive" id="delRec">記録を削除</button></div>
   <div class="field narrow"><label class="footnote sec" for="rlabel">番号・メモ（氏名は入れない）</label><input class="input" id="rlabel" placeholder="例：A-012" value="${esc(r.label||'')}"></div>
+  <div class="group narrow"><div class="rowin" style="padding-inline-start:var(--pad)"><label for="rdate" style="flex:1;min-width:0">記録日</label><input class="input" style="flex:none;width:auto" type="date" id="rdate" value="${recDate(r)}"></div></div>
   <div class="inline" style="flex-wrap:wrap">${dayCtl?`<div style="flex:1 1 100%;min-width:0">${dayCtl}</div>`:''}<button class="btn gray" id="addDay"${nd>=7?' disabled':''}>日を追加</button><button class="btn gray" id="dupOpen">複製</button>${nd>1?'<button class="btn gray destructive" id="delDay">この日を削除</button>':''}</div>
   <div class="cols">${meals}</div>
   <section class="narrow"><div class="ghead"><span class="footnote sec">聞き漏らしの確認</span></div><div class="group">${CHK.map((c,i)=>`<label class="row"><span class="grow">${c}を確認した</span><input type="checkbox" data-chk="${i}"${day.chk&&day.chk[i]?' checked':''}></label>`).join('')}</div>
@@ -604,6 +635,11 @@ function viewResult(){
   if(W&&(vk==='mal'||vk==='ckd')){body.push(row('体重1 kgあたりのエネルギー',r1(a.v[0]/W)+' kcal','現体重 '+W+' kg'));body.push(row('体重1 kgあたりのたんぱく質',(Math.round(a.v[1]/W*100)/100).toFixed(2)+' g','現体重 '+W+' kg'))}
   const cj=CJ.some(c=>c[0]===V.cj)?V.cj:0,C=contrib(days,cj,d<0?Math.max(1,a.n||1):1),ctot=C.reduce((x,y)=>x+y[1],0),[,cn,cu,cd]=NUT[cj];
   const veg=a.gg['06']||0,fru=a.gg['07']||0,alc=a.v[21];
+  const pr=r.self?null:prevRec(r);let prevHTML='';
+  if(pr){const b=recAgg(pr,pr.days.length>1?-1:0).v,w0=+(pr.target||{}).w,sg=x=>(x>0?'+':'')+x;
+    const dr=(l,j,dg,u)=>row(l,sg(dg?Math.round((a.v[j]-b[j])*10)/10:Math.round(a.v[j]-b[j]))+' '+u,'前回 '+fmt(b[j],dg)+' '+u+' → 今回 '+fmt(a.v[j],dg)+' '+u);
+    prevHTML=`<section><div class="ghead"><span class="footnote sec">前回（${esc(dlabel(recDate(pr)))}）との差</span></div><div class="group">${dr('エネルギー',0,0,'kcal')}${dr('たんぱく質',1,1,'g')}${dr('食塩相当量',5,1,'g')}${W&&w0?row('体重',sg(Math.round((W-w0)*10)/10)+' kg（'+sg(Math.round((W-w0)/w0*1000)/10)+'%）','前回 '+w0+' kg → 今回 '+W+' kg'):''}</div>
+    <div class="gfoot footnote sec">同じ番号の、ひとつ前の記録との比較です。複数日の記録は平均で比べています。${W&&w0?'':'体重の変化率は、両方の記録の目標設定に体重が入っていると出ます。'}</div></section>`}
   const pctRow=(l,g,T)=>`<div class="row"><span class="grow">${l}<span class="subhead sec num" style="display:grid;gap:4px">目標 ${T} g　${r0(g/T*100)}%<span class="meter" role="img" aria-label="${r0(g/T*100)}%"><span style="width:${Math.min(100,g/T*100)}%"></span></span></span></span><span class="val num">${r0(g)} g</span></div>`;
   return `<div class="navrow"><button class="btn plain" data-back="edit">‹ 入力</button><button class="btn plain" id="copyRes">結果をコピー</button></div>
   <h1 class="large">${esc(r.label||'結果')}</h1>
@@ -614,6 +650,7 @@ function viewResult(){
     <section><div class="ghead"><span class="footnote sec">${d<0?(a.n||0)+'日間の平均':'摂取量'}${vk==='std'?'':'（'+VW[0]+'の表示）'}</span></div><div class="group">${nutRows(a.v,tg,VW[1])}${body.join('')}</div>
     <div class="gfoot footnote sec">${tg.notes.length?tg.notes.map(esc).join('<br>'):'目標を設定すると、目標との比較が出ます。'}${vk==='lip'?'<br>飽和脂肪酸は、成分表の本表に列がなく（脂肪酸成分表編に収載）、まだ計算に入れていません。':''}${(vk==='mal'||vk==='ckd')&&!W?'<br>目標の設定で体重を入れると、体重1 kgあたりの量が出ます。':''}${vk==='std'?'':'<br>表示の切り替えは並びを変えるだけで、疾患ごとの基準値は入れていません。'}</div></section>
     <button class="btn gray block" id="setTarget">目標を設定</button>
+    ${prevHTML}
     ${pfcHTML(a.v,tg)}
     ${C.length?`<section><div class="ghead"><span class="footnote sec">どこから来ているか</span></div><div class="group"><div class="rowin" style="padding-inline-start:var(--pad)"><label for="cjSel" style="flex:1;min-width:0">栄養素</label><select class="input" style="flex:none;width:auto" id="cjSel">${CJ.map(c=>`<option value="${c[0]}"${c[0]===cj?' selected':''}>${c[1]}</option>`).join('')}</select></div>${C.slice(0,8).map(([k,v])=>`<div class="row"><span class="grow"><span class="wrap">${esc(k)}</span><span class="meter" role="img" aria-label="${r0(v/ctot*100)}%"><span style="width:${Math.min(100,v/ctot*100)}%"></span></span></span><span class="val num">${fmt(v,cd)} ${cu}<span class="subhead sec">　${r0(v/ctot*100)}%</span></span></div>`).join('')}</div>
     <div class="gfoot footnote sec">${cn}の多い順です${C.length>8?'（上位8件）':''}。同じ名前の行はまとめています。</div></section>`:''}
@@ -626,7 +663,9 @@ function viewResult(){
     <section><div class="ghead"><span class="footnote sec">野菜・果物・アルコール</span></div><div class="group">${pctRow('野菜類',veg,350)}${pctRow('果実類',fru,200)}${row('純アルコール',r1(alc)+' g')}</div>
     <div class="gfoot footnote sec">野菜350 g、果物200 gは、健康日本21（第三次）の目標（集団の平均値の目標）です。成分表の「野菜類」「果実類」に分類される食品の、食べた状態の重さを合計しています（ジュースや漬物も含みます）。純アルコールは成分表のアルコール（g）の合計です。同じ計画は、1日の純アルコール摂取量が男性40 g以上、女性20 g以上を「生活習慣病のリスクを高める量」としています。</div></section>
     ${groupHTML(a.gg)}
-  </div></div>${sourceNote()}`;
+  </div></div>
+  <div class="inline narrow" style="flex-wrap:wrap"><button class="btn gray" id="copyKarte">カルテ用の文をコピー</button><button class="btn gray" id="printRes">印刷</button><button class="btn gray" id="csvRes">CSVを書き出す</button></div>
+  ${sourceNote()}<p class="footnote sec note">この記録の計算に使ったデータ：${esc(r.dv||D.ver)}</p>`;
 }
 const sourceNote=()=>`<p class="footnote sec note">成分値：文部科学省「日本食品標準成分表（八訂）増補2023年」第2章データ（2026年3月27日更新）。重量変化率は同 第1章 表12。</p>`;
 function viewRcpList(){
@@ -716,9 +755,14 @@ function viewSet(){
   <button class="btn primary block" id="modeSw">${MNAME[other]}に切り替える</button></div>
   <div class="gfoot footnote sec">レシピ、マイ食品、目安量は両方のモードで共通です。</div></section>
   ${syncHTML()}
+  <section><div class="ghead"><span class="footnote sec">カルテ用の定型文</span></div><div class="stack" style="gap:8px"><textarea class="input" id="karteT" aria-label="カルテ用の定型文" style="min-height:200px">${esc(S.karte||KARTE_DEF)}</textarea>
+  <div class="inline"><button class="btn gray" id="karteSave">保存</button><button class="btn gray" id="karteReset">初期の文に戻す</button></div><p class="footnote sec note" id="karteMsg" role="status"></p></div>
+  <div class="gfoot footnote sec">結果ページの「カルテ用の文をコピー」で使います。行の順番や文面は自由に変えられます。{ } で囲んだ語が値に置き換わります：{番号} {記録日} {日数} {エネルギー} {たんぱく質} {脂質} {炭水化物} {食物繊維} {食塩} {カリウム} {リン} {水分} {アルコール} {利用可能炭水化物} {コレステロール} {PFC} {目標} {目標エネルギー} {充足率} {BMI} {体重} {目標体重} {体重あたりエネルギー} {体重あたりたんぱく質} {野菜} {果物} {確認事項} {食事内容} {出典}。値が空の行は出ません。</div></section>
   <section><div class="ghead"><span class="footnote sec">バックアップ</span></div><div class="stack" style="gap:8px"><button class="btn gray block" id="expBtn">すべてのデータを書き出す</button>
   <textarea class="input" id="io" aria-label="バックアップのデータ" placeholder="書き出したデータがここに出ます。読み込むときは、ここに貼り付けます。"></textarea>
   <button class="btn gray block" id="impBtn">貼り付けたデータを読み込む</button><p class="footnote sec note" id="ioMsg" role="status"></p></div></section>
+  <section><div class="ghead"><span class="footnote sec">自動バックアップ（この端末）</span></div>${Backup.list().length?`<div class="group">${Backup.list().map((b,k)=>`<div class="row"><span class="grow">${esc(dlabel(b.day))}の変更前<span class="subhead sec">${new Date(b.at).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}に保存</span></span><button class="btn gray" data-bak="${k}">戻す</button></div>`).join('')}</div>`:emptyNote('まだありません。')}
+  <div class="gfoot footnote sec">その日の最初の変更の直前の状態を、3日分この端末に残します。</div></section>
   <button class="btn destructive gray block" id="wipe">すべてのデータを消去</button>${sourceNote()}
   <p class="footnote sec note">目標量：厚生労働省「日本人の食事摂取基準（2025年版）」。必要エネルギー量：ハリス・ベネディクトの式、または体重あたりの簡易式。</p>
   ${D.c.length?`<p class="footnote sec note">チェーン店のメニュー：${D.c.map(c=>esc(c.n)+'（'+esc(c.upd)+'付の公表資料、'+esc(c.got)+'取得）').join('／')}。各社が公表している値をそのまま収録しています。メニューや数値は変わることがあります。</p>`:''}
@@ -734,7 +778,7 @@ function syncHTML(){
     <div class="gfoot footnote sec">ログインすると、同じアカウントでログインした端末どうしで記録がそろいます。記録には氏名を入れないでください。</div></section>`;
   return `<section>${head}<div class="stack" style="gap:8px"><div class="group"><div class="row"><span class="grow">同期中<span class="subhead sec wrap">${esc(AUTH.email)}</span></span></div></div>
     <button class="btn gray block" id="sNow">今すぐ同期</button><button class="btn gray destructive block" id="sOut">ログアウト</button><p class="footnote sec note" id="syncMsg" role="status"></p></div>
-    <div class="gfoot footnote sec">変更は自動で保存され、ほかの端末には開き直したときか1分以内に届きます。2台で同時に編集すると、後から保存したほうが残ります。</div></section>`;
+    <div class="gfoot footnote sec">変更は自動で保存され、ほかの端末には開き直したときか1分以内に届きます。2台で同時に編集すると、記録・レシピ・マイ食品は1件ごとに新しいほうを残して合わせます（同じ1件を2台で同時に直したときは、後から保存したほうが残ります）。</div></section>`;
 }
 /* ---------- 候補と追加 ---------- */
 function renderSug(inp){
@@ -889,7 +933,7 @@ function commit(){
     delete cur.nolearn;if(f){cur.tmp=false;f.l[f.k]=cur}}
   else if(sheetKind==='target'){readTarget();if(SELF())S.me.target=cur;else curRec().target=cur}
   else if(sheetKind==='custom'){readCustom();if(!cur.name){$('c_name').focus();return}
-    if(cur.id){const k=S.custom.findIndex(x=>x.id===cur.id);S.custom[k]=cur}else{cur.id='c'+S.seq++;S.custom.push(cur)}}
+    if(cur.id){const k=S.custom.findIndex(x=>x.id===cur.id);S.custom[k]=cur}else{cur.id=uid('c');S.custom.push(cur)}}
   save();render();$('sheet').close();
 }
 /* チェーン店のメニューを選ぶシート */
@@ -952,6 +996,29 @@ function textOfRecord(){
   L.push('成分値：日本食品標準成分表（八訂）増補2023年');
   return L.join('\n');
 }
+/* カルテ用の定型文。{ } の中が値に置き換わる。設定で文面と順番を変えられる */
+const KARTE_DEF='【食事調査】{番号}　{記録日}{日数}\n摂取量：エネルギー {エネルギー} kcal、たんぱく質 {たんぱく質} g、脂質 {脂質} g、炭水化物 {炭水化物} g、食塩相当量 {食塩} g\nPFC比：{PFC}\n目標：{目標}\n{確認事項}\n{食事内容}\n成分値：{出典}';
+function karteVars(){
+  const r=curRec(),nd=r.days.length,d=nd>1?V.res:0,a=recAgg(r,d),tg=target(r),p=pfcOf(a.v),W=+(r.target||{}).w,v=a.v;
+  const warn=[...document.querySelectorAll('#view section')].find(x=>x.textContent.startsWith('確認が必要な点'));
+  const meals=[];(d>=0?[r.days[d]]:r.days).forEach((x,i)=>{if(d<0)meals.push((i+1)+'日目');MEALS.forEach((mn,mi)=>{const ms=x.menus.filter(m=>m.meal===mi&&m.items.length);if(ms.length)meals.push(mn+'：'+ms.map(m=>(m.name?m.name+'（':'')+m.items.map(t=>itemName(t)+' '+itemAmount(t)+(t.fr!=null&&t.fr!==1?'・'+frText(t.fr):'')).join('、')+(m.name?'）':'')).join('、'))})});
+  return {'番号':r.label||'','記録日':r.self?r.label:dlabel(recDate(r)),'日数':d<0?'（'+(a.n||0)+'日間の平均）':nd>1?'（'+(d+1)+'日目）':'',
+   'エネルギー':r0(v[0]),'たんぱく質':r1(v[1]),'脂質':r1(v[2]),'炭水化物':r1(v[3]),'食物繊維':r1(v[4]),'食塩':r1(v[5]),'カリウム':r0(v[6]),'リン':r0(v[9]),'水分':r0(v[20]),'アルコール':r1(v[21]),'利用可能炭水化物':r1(v[23]),'コレステロール':r0(v[19]),
+   'PFC':r0(p[0])+' : '+r0(p[1])+' : '+r0(p[2])+'（'+(S.pfc==='old'?'従来の方法':'八訂の方法')+'）',
+   '目標':[tg.kcal?'エネルギー '+r0(tg.kcal)+' kcal（充足率 '+r0(v[0]/tg.kcal*100)+'%）':'',tg.prot?'たんぱく質 '+r1(tg.prot)+' g（充足率 '+r0(v[1]/tg.prot*100)+'%）':'',tg.salt?'食塩 '+tg.salt+' g未満':''].filter(Boolean).join('、')||'未設定',
+   '目標エネルギー':tg.kcal?r0(tg.kcal):'','充足率':tg.kcal?r0(v[0]/tg.kcal*100)+'%':'','BMI':tg.bmi?r1(tg.bmi):'','体重':W||'','目標体重':tg.tw?r1(tg.tw):'',
+   '体重あたりエネルギー':W?r1(v[0]/W):'','体重あたりたんぱく質':W?(Math.round(v[1]/W*100)/100).toFixed(2):'',
+   '野菜':r0(a.gg['06']||0),'果物':r0(a.gg['07']||0),
+   '確認事項':warn?'確認事項：'+[...warn.querySelectorAll('.row')].map(x=>x.textContent.trim()).join('／'):'','食事内容':meals.join('\n'),'出典':r.dv||D.ver};
+}
+const karteText=()=>{const V2=karteVars();return (S.karte||KARTE_DEF).replace(/\{([^{}]+)\}/g,(m,k)=>k in V2?V2[k]:m).split('\n').filter(l=>l.trim()).join('\n')};
+function csvOfRecord(){
+  const r=curRec(),q=x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"',ids=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,22,14,15,16,17,18,19,23,20,21],L=[];
+  L.push(['番号','記録日','日','食事','メニュー','食品','食品番号','量','単位','食べた割合'].concat(ids.map(j=>NUT[j][1]+'('+NUT[j][2]+')')).map(q).join(','));
+  r.days.forEach((x,di)=>x.menus.forEach(m=>m.items.forEach(it=>{const c=calc(it);L.push([r.label||'',r.self?V.date:recDate(r),di+1,MEALS[m.meal],m.name||'',itemName(it),it.id||'',it.g==null?'':it.g,it.ext?'品':it.dish?'人分':it.cu&&(S.custom.find(z=>z.id===it.cu)||{}).basis==='u'?'個':'g',it.fr==null?1:it.fr].concat(ids.map(j=>Math.round(c.v[j]*100)/100)).map(q).join(','))})));
+  r.days.forEach((x,di)=>{const a=dayAgg(x);L.push([r.label||'',r.self?V.date:recDate(r),di+1,'合計','','','','','',''].concat(ids.map(j=>Math.round(a.v[j]*100)/100)).map(q).join(','))});
+  return L.join('\r\n');
+}
 function textOfRecipe(){
   const r=curRcp(),n=Math.max(1,r.servings||1),t=sumItems(r.items),L=['【レシピ】'+(r.name||'')+'（'+n+'人分）','1人分'];
   L.push(...lines(t.v.map(x=>x/n),null));L.push('材料：'+r.items.map(t=>itemName(t)+' '+itemAmount(t)).join('、'));L.push('成分値：日本食品標準成分表（八訂）増補2023年');
@@ -986,6 +1053,7 @@ document.addEventListener('change',e=>{
   else if(t.dataset.chk!=null){const d=curDay();d.chk=d.chk||[false,false,false,false];d.chk[+t.dataset.chk]=t.checked;save()}
   else if(t.id==='rlabel'){curRec().label=t.value.trim();curRec().example=false;save()}
   else if(t.id==='rname'){curRcp().name=t.value.trim();save()}
+  else if(t.id==='rdate'){curRec().date=t.value||dkey(new Date());save()}
   else if(t.name==='method'||t.id==='methodSel'){readAmt();cur.id=t.value;cur.tmp=false;drawSheet()}
   else if(t.name==='timing'){readAmt();cur.t=t.value;drawSheet()}
   else if(t.name==='fr'||t.id==='frSel'){readAmt();cur.fr=+t.value;drawSheet()}
@@ -1008,7 +1076,8 @@ document.addEventListener('click',e=>{
   else if(ds.fuse!=null){readAmt();if(ds.fuse===''){cur.use=''}else{const d=new Date();d.setDate(d.getDate()+(+ds.fuse));cur.use=dkey(d)}drawFridge()}
   else if(b.id==='dPrev'||b.id==='dNext'){const d=dparse(V.date);d.setDate(d.getDate()+(b.id==='dNext'?1:-1));V.date=dkey(d);render()}
   else if(b.id==='dToday'){V.date=dkey(new Date());render()}
-  else if(b.id==='newRec'){const r={id:'r'+S.seq++,label:'',created:Date.now(),target:{},days:[newDay()]};S.records.push(r);V.rec=r.id;V.day=0;V.screen='edit';save();render();window.scrollTo(0,0)}
+  else if(b.id==='newRec'){const r={id:uid('r'),label:'',created:Date.now(),date:dkey(new Date()),target:{},days:[newDay()]};S.records.push(r);V.rec=r.id;V.day=0;V.screen='edit';save();render();window.scrollTo(0,0)}
+  else if(ds.again){const o=S.records.find(x=>x.id===ds.again),r={id:uid('r'),label:o.label,created:Date.now(),date:dkey(new Date()),target:JSON.parse(JSON.stringify(o.target||{})),view:o.view,days:[newDay()]};S.records.push(r);V.rec=r.id;V.day=0;V.screen='edit';save();render();window.scrollTo(0,0)}
   else if(ds.open){V.rec=ds.open;V.day=0;V.res=-1;V.screen='edit';render();window.scrollTo(0,0)}
   else if(b.id==='addDay'){const r=curRec();r.days.push(newDay());V.day=r.days.length-1;save();render()}
   else if(b.id==='delDay')ask((V.day+1)+'日目を削除しますか？','この日の入力がすべて消えます。',[{l:'削除',d:1,f:()=>{const r=curRec();r.days.splice(V.day,1);V.day=Math.max(0,V.day-1)}},CANCEL]);
@@ -1019,18 +1088,24 @@ document.addEventListener('click',e=>{
   else if(ds.pick!=null)pick(ds.key,+ds.pick);
   else if(ds.multi!=null)pickMulti(ds.multi);
   else if(b.id==='undoBtn')Undo.back();
+  else if(ds.bak!=null)ask('この時点に戻しますか？','いまのデータは、この時点の内容で置き換わります（直後なら「取り消す」で戻せます）。',[{l:'戻す',d:1,f:()=>Backup.restore(+ds.bak)},CANCEL]);
   else if(ds.mdup){const d=curDay(),k=d.menus.findIndex(x=>x.n===+ds.mdup);if(k>=0){d.menus.splice(k+1,0,cloneMenu(d.menus[k]));save();render()}}
   else if(b.id==='dupOpen')openDup();
   else if(b.id==='dupDay'){const r=curRec(),d=curDay();r.days.push({chk:[false,false,false,false],menus:d.menus.map(m=>cloneMenu(m))});V.day=r.days.length-1;save();render();$('sheet').close()}
   else if(ds.dupmeal){const [f,t]=ds.dupmeal.split('-').map(Number),d=curDay();d.menus.filter(m=>m.meal===f&&m.items.length).forEach(m=>d.menus.push(cloneMenu(m,t)));save();render();$('dupMsg').textContent=MEALS[f]+'を'+MEALS[t]+'に複製しました。'}
   else if(ds.rowdel){const f=findItem(+ds.rowdel);if(f){Undo.take();f.l.splice(f.k,1);save();render();Undo.show('行を削除しました')}}
   else if(ds.edit){if(Swipe.justMoved||Swipe.justClosed||Swipe.closeAll()){Swipe.justClosed=false;return}openSheet(+ds.edit)}
-  else if(b.id==='confirm'){const d=curRec();d.days.forEach(x=>x.menus=x.menus.filter(m=>m.items.length||m.name));V.res=d.days.length>1?-1:0;V.screen='result';save();render();window.scrollTo(0,0)}
+  else if(b.id==='confirm'){const d=curRec();d.days.forEach(x=>x.menus=x.menus.filter(m=>m.items.length||m.name));V.res=d.days.length>1?-1:0;V.screen='result';if(!d.self)d.dv=D.ver;save();render();window.scrollTo(0,0)}
   else if(b.id==='setTarget')openTarget();
   else if(b.id==='clearTarget'){cur={em:'kg'};drawTarget()}
   else if(b.id==='copyRes')copyText(textOfRecord(),b);
+  else if(b.id==='copyKarte')copyText(karteText(),b);
+  else if(b.id==='printRes')window.print();
+  else if(b.id==='csvRes'){const r=curRec(),a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csvOfRecord()],{type:'text/csv'}));a.download='食事記録_'+(r.label||'記録').replace(/[\\/:*?"<>|]/g,'_')+'_'+(r.self?V.date:recDate(r))+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
+  else if(b.id==='karteSave'){S.karte=$('karteT').value;save();$('karteMsg').textContent='保存しました。'}
+  else if(b.id==='karteReset'){delete S.karte;save();render()}
   else if(b.id==='copyRcp')copyText(textOfRecipe(),b);
-  else if(b.id==='newRcp'){const r={id:'d'+S.seq++,name:'',servings:2,items:[]};S.recipes.push(r);V.rcp=r.id;V.screen='rcpedit';save();render();window.scrollTo(0,0)}
+  else if(b.id==='newRcp'){const r={id:uid('d'),name:'',servings:2,items:[]};S.recipes.push(r);V.rcp=r.id;V.screen='rcpedit';save();render();window.scrollTo(0,0)}
   else if(ds.ropen){V.rcp=ds.ropen;V.screen='rcpedit';render();window.scrollTo(0,0)}
   else if(b.id==='servM'||b.id==='servP'){const r=curRcp();r.servings=Math.max(1,(r.servings||1)+(b.id==='servP'?1:-1));save();render()}
   else if(b.id==='rcpConfirm'){V.per=1;V.screen='rcpres';render();window.scrollTo(0,0)}
