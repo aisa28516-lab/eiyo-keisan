@@ -8,7 +8,7 @@ async def main():
         pg=await (await b.new_context(viewport={'width':390,'height':844})).new_page()
         pg.on('console',lambda m: errs.append(m.text) if m.type=='error' else None); pg.on('pageerror',lambda e: errs.append(str(e)))
         await pg.goto(URL)
-        res=await pg.evaluate("""qs=>qs.map(q=>{const r=search(q);const o=r.out[0];if(!o)return q+' => ×なし';const R=resolveQty(r.P.qty,o.idx);const it={id:F[o.idx][0],g:null,t:'a',r:false};if(R)applyPortion(it,R);return q+' => '+F[IDX[it.id]][0]+' '+dispName(IDX[it.id])+' '+stateOf(IDX[it.id])+' | '+(R?(it.pl||'')+' = '+it.g+' g t='+it.t+(it.r?' 廃棄込み':'')+(it.pn?' ※'+it.pn:'')+' → '+Math.round(calc(it).v[0])+' kcal':'量は未解決')})""",QS)
+        res=await pg.evaluate("""qs=>qs.map(q=>{const r=search(q);const o=r.out.find(x=>x.idx!=null);if(!o)return q+' => ×なし';const R=resolveQty(r.P.qty,o.idx);const it={id:F[o.idx][0],g:null,t:'a',r:false};if(R)applyPortion(it,R);return q+' => '+F[IDX[it.id]][0]+' '+dispName(IDX[it.id])+' '+stateOf(IDX[it.id])+' | '+(R?(it.pl||'')+' = '+it.g+' g t='+it.t+(it.r?' 廃棄込み':'')+(it.pn?' ※'+it.pn:'')+' → '+Math.round(calc(it).v[0])+' kcal':'量は未解決')})""",QS)
         print('\n'.join(res))
         # UI: sheet chips
         await pg.click('#newRec'); await pg.fill('[data-add="new-0"]','うどん'); await pg.press('[data-add="new-0"]','Enter'); await pg.wait_for_selector('dialog[open] [data-bp]')

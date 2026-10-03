@@ -21,6 +21,14 @@ for r in rows:
     toks.append(t)
     foods.append([r[1], name, num(r[3]), num(r[4]), num(r[5]), num(r[6]), num(r[7]), num(r[8]), -1, '', 0] + [num(x) for x in r[9:24]])
 
+# 追加の列（成分表 第2章 本表）：水分、アミノ酸組成によるたんぱく質、脂肪酸のトリアシルグリセロール当量、
+# 利用可能炭水化物（質量計。なければ差引き法）、ビタミンK、アルコール。
+# エネルギー計算用のたんぱく質・脂質は、収載値がない食品では従来のたんぱく質・脂質を使う（成分表 第1章 表2 注*1 と同じ扱い）
+EXTRA = json.load(open(f'{D}/data/extra.json'))
+for f in foods:
+    w, pa, fa, cav, cdf, vk, alc = EXTRA[f[0]]
+    f += [w or 0, pa if pa is not None else f[4], fa if fa is not None else f[5], cav if cav is not None else (cdf or 0), vk or 0, alc or 0]
+assert len(foods[0]) == 32
 full = {tuple(t): i for i, t in enumerate(toks)}
 by = collections.defaultdict(list)
 for i, t in enumerate(toks):
@@ -75,7 +83,7 @@ for f in foods:
 chk = {f[0]: f for f in foods}
 assert chk['11183'][3] == 241 and chk['11314'][3] == 238 and chk['11315'][3] == 283 and chk['11316'][3] == 254
 assert chk['06372'][6] == 4.3 and chk['10470'][6] == 12.2 and '半固体状' in chk['17042'][1]
-assert len(foods) == 2538 and all(len(f) == 26 for f in foods)
+assert len(foods) == 2538 and all(len(f) == 32 for f in foods)
 assert chk['01088'][11] == 1.5 and chk['01088'][12] == 29 and chk['01088'][15] == 34, chk['01088']
 
 # ---- 呼び名の辞書 ----
@@ -157,7 +165,7 @@ _ci = f'{D}/data/chains/index.json'
 if os.path.exists(_ci):
     for c in json.load(open(_ci, encoding='utf-8')):
         _r = [l.rstrip('\n').split('\t') for l in open(f"{D}/data/chains/{c['id']}.tsv", encoding='utf-8') if l.strip()]
-        CH.append({'n': c['name'], 'cat': c['cat'], 'src': c['src'], 'upd': c['updated'], 'got': c['fetched'],
+        CH.append({'aka': c.get('aka', []), 'n': c['name'], 'cat': c['cat'], 'src': c['src'], 'upd': c['updated'], 'got': c['fetched'],
                    'm': [[r[0], r[1]] + [float(x) for x in r[2:7]] for r in _r]})
 print('チェーン店:', [(c['n'], len(c['m'])) for c in CH])
 data = json.dumps({'c': CH, 'f': foods, 'g': groups, 'a': al, 'k': kj, 'd': dens, 'p': ports, 'src': SRC}, ensure_ascii=False, separators=(',', ':'))
