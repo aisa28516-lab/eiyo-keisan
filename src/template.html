@@ -116,7 +116,7 @@ textarea.input{padding:8px var(--pad);min-height:120px;resize:vertical}
 .btn.block{display:grid;width:100%}
 .btn.plain{padding:0 var(--pad)}
 .btn:disabled{opacity:.4;cursor:default}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}.chips .btn{max-width:100%;white-space:normal;text-align:start}
 
 .pfc{display:flex;gap:2px;height:16px;border-radius:8px;overflow:hidden;margin:12px var(--pad)}
 .pfc>span{min-width:2px}
@@ -153,6 +153,7 @@ dialog.alert{margin:auto;width:min(320px,calc(100% - 32px));border-radius:var(--
   .row{padding:2px 8px;min-height:0}.stack,.cols{gap:6px}.meter{display:none}
 }
 input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent);flex:none}
+input[type=range]{flex:1;min-width:0;height:var(--tap);margin:0;accent-color:var(--accent)}
 </style>
 
 <div class="app">
@@ -401,8 +402,8 @@ const r0=x=>Math.round(x).toLocaleString('ja-JP'),r1=x=>(Math.round(x*10)/10).to
 const fmt=(x,d)=>d?(+x).toFixed(d):r0(x);
 
 /* ---------- 目安量 ---------- */
-const PRE='小さじ|大さじ|計量カップ|カップ|お茶碗|茶碗|小盛り|中盛り|大盛り|コップ|グラス|おちょこ|お猪口|中ジョッキ|大ジョッキ|ジョッキ|銚子|とっくり|徳利|中びん|大びん|中瓶|大瓶|びん|瓶|ボトル|シングル|ダブル|スライス|缶';
-const SUF='グラム|kg|g|ml|cc|リットル|l|合|貫|個|玉|枚|本|杯|丁|パック|缶|膳|食|人分|人前|切れ|束|袋|房|尾|匹|片|かけ|株|把|つ';
+const PRE='小さじ|大さじ|計量カップ|カップ|お茶碗|茶碗|小盛り|中盛り|大盛り|どんぶり|丼|コップ|グラス|おちょこ|お猪口|中ジョッキ|大ジョッキ|ジョッキ|銚子|とっくり|徳利|中びん|大びん|中瓶|大瓶|びん|瓶|ボトル|シングル|ダブル|スライス|缶';
+const SUF='グラム|kg|g|ml|cc|リットル|l|合|貫|個|玉|枚|本|杯|丁|パック|缶|膳|食|人分|人前|切れ|切|斤|粒|束|袋|房|尾|匹|片|かけ|株|把|つ';
 const QRE=new RegExp('('+PRE+')?\\s*(\\d+(?:\\.\\d+)?(?:/\\d+(?:\\.\\d+)?)?|半(?=\\s*(?:'+SUF+')))\\s*('+SUF+')?\\s*$','i');
 const QRE1=new RegExp('\\s('+PRE+')\\s*$');
 const ML={ml:1,cc:1,l:1000,'リットル':1000,'合':180},SPOON={'小さじ':5,'大さじ':15,'カップ':200,'計量カップ':200};
@@ -416,7 +417,7 @@ function portionsFor(i){
   (S.portions[pk]||[]).forEach(p=>out.push({l:p.label,g:p.g,k:[p.label],user:true}));
   const seen=new Set();
   [i].concat(g?g.m:[]).forEach(j=>(D.p[j]||[]).forEach(p=>{if(seen.has(p[0]))return;seen.add(p[0]);
-    const gg=p[2]?(D.d[j]!=null?p[1]*D.d[j]/100:null):p[1];if(gg==null)return;
+    const dj=D.d[j]!=null?D.d[j]:(densOf(j)||{}).d,gg=p[2]?(dj!=null?p[1]*dj/100:null):p[1];if(gg==null)return;
     out.push({l:p[0],g:Math.round(gg*10)/10,k:p[3],t:p[4],w:p[5],v:p[6]>=0?p[6]:(j!==i&&p[2]?j:-1),src:p[7]})}));
   if(dn&&!dn.est)[['小さじ1',5,'小さじ'],['大さじ1',15,'大さじ'],['カップ1（200 mL）',200,'カップ']].forEach(([l,ml,k])=>out.push({l,g:Math.round(ml*dn.d/10)/10,k:[k],src:0}));
   return out;
@@ -427,10 +428,11 @@ function resolveQty(q,i){
   if(!q.pre&&(!q.suf||q.suf==='g'||q.suf==='グラム'))return{g:q.num};
   if(!q.pre&&q.suf==='kg')return{g:q.num*1000};
   const ml=q.pre?SPOON[q.pre]:ML[q.suf];
-  if(ml){const dn=densOf(i);if(!dn)return null;const t=q.pre?q.pre+numTxt(q.num):numTxt(q.num)+(q.suf==='合'?'合':' '+(q.suf==='l'||q.suf==='リットル'?'L':'mL'));
+  const dn0=ml?densOf(i):null;
+  if(ml&&dn0){const dn=dn0;const t=q.pre?q.pre+numTxt(q.num):numTxt(q.num)+(q.suf==='合'?'合':' '+(q.suf==='l'||q.suf==='リットル'?'L':'mL'));
     return{g:Math.round(ml*q.num*dn.d/10)/10,pl:t,note:dn.est?'容量と重さの換算が成分表にないため1 mL＝1 gで計算':''}}
   const ps=portionsFor(i),has=(p,w)=>w&&p.k.some(k=>p.user?k.includes(w):k===w);
-  if(q.cut){const pc=ps.find(x=>x.user&&x.l.includes(q.cut));return pc?{g:Math.round(pc.g*q.num*10)/10,pl:(q.num===1?'':numTxt(q.num)+' × ')+pc.l}:null}
+  if(q.cut){const pc=ps.find(x=>x.user&&x.l.includes(q.cut))||ps.find(x=>!x.user&&x.k.includes(q.cut));return pc?{g:Math.round(pc.g*q.num*10)/10,pl:(q.num===1?'':numTxt(q.num)+' × ')+pc.l,t:pc.t,w:pc.w,v:pc.v,src:pc.src}:null}
   const p=ps.find(x=>has(x,q.pre))||ps.find(x=>!q.pre&&has(x,q.suf))||ps.find(x=>has(x,q.suf));
   if(!p)return null;
   return{g:Math.round(p.g*q.num*10)/10,pl:(q.num===1?'':numTxt(q.num)+' × ')+p.l,t:p.t,w:p.w,v:p.v,src:p.src};
@@ -884,11 +886,12 @@ function openSheet(n){const f=findItem(n);if(!f)return;cur=Object.assign({},f.l[
 function drawSheet(){
   if(S.tab==='fr')return drawFridge();
   const it=cur;let body='';
-  if(it.pv){const o=v=>[10,9,8,7,6,5,4,3,2,1,0].map(k=>`<option value="${k/10}"${Math.abs((v==null?1:v)-k/10)<0.001?' selected':''}>${k}割</option>`).join(''),c=calc(it);
-    $('sheet').innerHTML=sheetShell(itemName(it),`<div class="group"><div class="rowin" style="padding-inline-start:var(--pad)"><label for="pvM" style="flex:1;min-width:0">主食を食べた割合</label><select class="input" style="flex:none;width:auto" id="pvM">${o(it.sm)}</select></div><div class="rowin" style="padding-inline-start:var(--pad)"><label for="pvS" style="flex:1;min-width:0">副食を食べた割合</label><select class="input" style="flex:none;width:auto" id="pvS">${o(it.sf)}</select></div></div>
+  if(it.pv){const c=calc(it),sl=(id,lab,v)=>{const pc=Math.round((v==null?1:v)*100);return `<div class="field"><span class="footnote sec flabel" id="${id}lab">${lab}</span><div class="group"><div class="rowin" style="padding-inline:var(--pad);gap:8px;align-items:center"><span class="footnote sec num" aria-hidden="true">0</span><input type="range" id="${id}" min="0" max="100" step="10" value="${pc}" aria-labelledby="${id}lab" aria-valuetext="${pc/10}割"><span class="footnote sec num" aria-hidden="true">10</span><output class="num" id="${id}o" style="min-width:4.5ch;text-align:end">${pc/10}割</output></div></div></div>`};
+    $('sheet').innerHTML=sheetShell(itemName(it),`${sl('pvM','主食を食べた割合（0〜10割）',it.sm)}${sl('pvS','副食を食べた割合（0〜10割）',it.sf)}
     <div class="group"><div class="row"><span class="grow">エネルギー</span><span class="val num">${r0(c.v[0])} kcal</span></div><div class="row"><span class="grow">たんぱく質</span><span class="val num">${r1(c.v[1])} g</span></div></div>
     <button class="btn destructive block gray" id="del">この行を削除</button>`);return}
-  const frac=`<div class="field"><span class="footnote sec flabel" id="frlab">食べた割合</span><div class="seg" role="radiogroup" aria-labelledby="frlab">${segHTML('fr',[[1,'全部'],[0.5,'半分'],[0,'残した']],it.fr==null?1:it.fr)}</div><div class="group"><div class="rowin" style="padding-inline-start:var(--pad)"><label for="frSel" style="flex:1;min-width:0">10%きざみで選ぶ</label><select class="input" style="flex:none;width:auto" id="frSel">${[10,9,8,7,6,5,4,3,2,1,0].map(k=>`<option value="${k/10}"${Math.abs((it.fr==null?1:it.fr)-k/10)<0.001?' selected':''}>${k*10}%</option>`).join('')}</select></div></div><span class="footnote sec flabel">麺の汁やかけた調味料など、残した分を差し引きます。</span></div>`;
+  const slider=(id,lab,v,step)=>{const pc=Math.round((v==null?1:v)*100);return `<div class="field"><span class="footnote sec flabel" id="${id}lab">${lab}</span><div class="group"><div class="rowin" style="padding-inline:var(--pad);gap:8px;align-items:center"><span class="footnote sec num" aria-hidden="true">0</span><input type="range" id="${id}" min="0" max="100" step="${step}" value="${pc}" aria-labelledby="${id}lab" aria-valuetext="${pc}%"><span class="footnote sec num" aria-hidden="true">100</span><output class="num" id="${id}o" style="min-width:4.5ch;text-align:end">${pc}%</output></div></div></div>`};
+  const frac=slider('frR','食べた割合（左端 0%＝残した、右端 100%＝全部）',it.fr,5)+`<span class="footnote sec flabel">麺の汁やかけた調味料など、残した分を差し引きます。</span>`;
   if(it.dish||it.cu||it.ext){
     const c=it.cu&&S.custom.find(x=>x.id===it.cu),unit=it.ext?'数。半分なら0.5':it.dish?'人分':c&&c.basis==='u'?(c.unit||'1食')+'の数':c&&c.basis==='ml'?'mL':'g';
     body=`<div class="field"><label class="footnote sec" for="amt">量（${esc(unit)}）</label><input class="input num" id="amt" inputmode="decimal" value="${it.g==null?'':it.g}"></div>`+((S.tab==='rec'||S.tab==='day')?frac:'');
@@ -1068,6 +1071,8 @@ document.addEventListener('input',e=>{
   const t=e.target;
   if(t.dataset.add!=null)renderSug(t);
   else if(t.id==='chq'){$('chl').innerHTML=chainRows(t.value)}
+  else if(t.id==='frR'){const o=$('frRo');if(o)o.textContent=t.value+'%';t.setAttribute('aria-valuetext',t.value+'%')}
+  else if(t.id==='pvM'||t.id==='pvS'){const o=$(t.id+'o');if(o)o.textContent=(+t.value/10)+'割'}
   else if(t.id==='amt'){readAmt();cur.pl='';cur.pn='';cur.pc=0;const k=$('skcal');if(k)k.textContent=r0(calc(cur).v[0])+' kcal'}
 });
 document.addEventListener('paste',e=>{const t=e.target;if(!(t.dataset&&t.dataset.add!=null))return;const tx=(e.clipboardData||window.clipboardData).getData('text');
@@ -1089,13 +1094,13 @@ document.addEventListener('change',e=>{
   else if(t.id==='rdate'){curRec().date=t.value||dkey(new Date());save()}
   else if(t.name==='method'||t.id==='methodSel'){readAmt();cur.id=t.value;cur.tmp=false;drawSheet()}
   else if(t.name==='timing'){readAmt();cur.t=t.value;drawSheet()}
-  else if(t.name==='fr'||t.id==='frSel'){readAmt();cur.fr=+t.value;drawSheet()}
+  else if(t.id==='frR'){readAmt();cur.fr=+t.value/100;drawSheet()}
   else if(t.id==='refuse'){readAmt();cur.r=t.checked;drawSheet()}
   else if(t.name==='sex'){readTarget();cur.sex=t.value}
   else if(t.name==='em'){readTarget();cur.em=t.value;drawTarget()}
   else if(t.name==='basis'){readCustom();cur.basis=t.value;drawCustom()}
   else if(t.name==='route'){readCustom();cur.route=t.value}
-  else if(t.id==='pvM'||t.id==='pvS'){cur[t.id==='pvM'?'sm':'sf']=+t.value;drawSheet()}
+  else if(t.id==='pvM'||t.id==='pvS'){cur[t.id==='pvM'?'sm':'sf']=+t.value/100;drawSheet()}
 });
 document.addEventListener('click',e=>{
   if(e.target===$('sheet')){$('sheet').close();return}

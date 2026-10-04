@@ -13,7 +13,7 @@ async def main():
         await pg.click('#newCu'); await pg.fill('#c_name','経腸栄養剤X'); await pg.click('dialog label:has-text("100 mLあたり")'); await pg.fill('#c_v0','100'); await pg.fill('#c_v1','4'); await pg.fill('#c_v20','85'); await pg.click('dialog label:has-text("経腸栄養")'); await pg.click('#done')
         await pg.screenshot(path=f'{OUT}/p4-my.png',full_page=True)
         await pg.click('[data-tab="rec"]'); await pg.click('#newRec')
-        await pg.fill('[data-add="new-1"]','常食'); await pg.wait_for_selector('[data-sug="new-1"] [data-pick]'); await pg.press('[data-add="new-1"]','Enter'); await pg.wait_for_selector('#pvM'); await pg.select_option('#pvM','0.5'); await pg.select_option('#pvS','0.8'); await pg.screenshot(path=f'{OUT}/p4-sheet.png'); await pg.click('#done')
+        await pg.fill('[data-add="new-1"]','常食'); await pg.wait_for_selector('[data-sug="new-1"] [data-pick]'); await pg.press('[data-add="new-1"]','Enter'); await pg.wait_for_selector('#pvM'); await pg.evaluate("(a=>{const r=document.querySelector(a[0]);r.value=a[1];r.dispatchEvent(new Event('input',{bubbles:true}));r.dispatchEvent(new Event('change',{bubbles:true}))})",['#pvM',50]); await pg.wait_for_timeout(100); await pg.evaluate("(a=>{const r=document.querySelector(a[0]);r.value=a[1];r.dispatchEvent(new Event('input',{bubbles:true}));r.dispatchEvent(new Event('change',{bubbles:true}))})",['#pvS',80]); await pg.wait_for_timeout(100); await pg.screenshot(path=f'{OUT}/p4-sheet.png'); await pg.click('#done')
         async def add(key,text):
             await pg.fill(f'[data-add="{key}"]',text); await pg.wait_for_selector(f'[data-sug="{key}"] [data-pick]'); await pg.press(f'[data-add="{key}"]','Enter')
         await add('new-2','経腸栄養剤X 400'); await add('new-0','寿司 8貫')

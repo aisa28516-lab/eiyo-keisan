@@ -11,16 +11,16 @@ async def main():
         await pg.goto(URL); await pg.click('#newRec')
         items=lambda: pg.evaluate("JSON.stringify(curDay().menus.map(m=>[m.meal,m.items.map(i=>[itemName(i),i.g,i.pl||'',i.fr==null?1:i.fr])]))")
         # まとめて追加
-        await pg.fill('[data-add="new-0"]','ごはん 茶碗1杯、味噌汁 1杯、卵 1個, バナナ 1本'); await pg.wait_for_selector('[data-multi]'); await pg.screenshot(path=f'{OUT}/p1-multi.png')
+        await pg.fill('[data-add="new-0"]','ごはん 茶碗1杯、味噌汁 1杯、卵 1個, コロッケ 1個'); await pg.wait_for_selector('[data-multi]'); await pg.screenshot(path=f'{OUT}/p1-multi.png')
         await pg.press('[data-add="new-0"]','Enter'); await pg.wait_for_timeout(200)
         mn=await pg.evaluate("curDay().menus[0].n")
         print('multi',await items()); print('left:',repr(await pg.input_value(f'[data-add="{mn}"]')),'|',await pg.inner_text(f'[data-st="{mn}"]'))
         await pg.fill(f'[data-add="{mn}"]','')
-        # 覚える目安量：バナナ 1本 → 100 g を入れて完了
+        # 覚える目安量：コロッケ 1個 → 100 g を入れて完了
         n=await pg.evaluate("curDay().menus[0].items.find(i=>i.g==null).n"); await pg.click(f'[data-edit="{n}"]'); await pg.wait_for_selector('#learnP'); await pg.fill('#amt','100'); await pg.screenshot(path=f'{OUT}/p1-learn.png'); await pg.click('#done')
-        print('learned',await pg.evaluate("JSON.stringify(S.portions)"),await pg.evaluate("q=>{const R=search(q);return JSON.stringify(resolveQty(R.P.qty,R.out[0].idx))}",'バナナ 2本'))
+        print('learned',await pg.evaluate("JSON.stringify(S.portions)"),await pg.evaluate("q=>{const R=search(q);return JSON.stringify(resolveQty(R.P.qty,R.out[0].idx))}",'コロッケ 2個'))
         # 食べた割合 30%
-        n0=await pg.evaluate("curDay().menus[0].items[0].n"); await pg.click(f'[data-edit="{n0}"]'); await pg.select_option('#frSel','0.3'); await pg.click('#done')
+        n0=await pg.evaluate("curDay().menus[0].items[0].n"); await pg.click(f'[data-edit="{n0}"]'); await pg.evaluate("(a=>{const r=document.querySelector(a[0]);r.value=a[1];r.dispatchEvent(new Event('input',{bubbles:true}));r.dispatchEvent(new Event('change',{bubbles:true}))})",['#frR',30]); await pg.click('#done')
         print('fr',await pg.evaluate("[curDay().menus[0].items[0].fr,Math.round(calc(curDay().menus[0].items[0]).v[0])]"),await pg.inner_text(f'[data-edit="{n0}"]'))
         # 取り消し
         c0=await pg.evaluate("curDay().menus[0].items.length"); await pg.click(f'[data-edit="{n0}"]'); await pg.click('#del'); c1=await pg.evaluate("curDay().menus[0].items.length")
