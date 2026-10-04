@@ -223,7 +223,7 @@ const PRESETS=[
  ['にぎり寿司（まぐろ・1貫）',['寿司','すし','鮨','お寿司','にぎり寿司','握り寿司','にぎり','握り'],[['01088',20,'a'],['17102',2],['10253',12]],'貫']];
 const addPresets=()=>{const from=S.presetV===1?7:S.presetV>=2?PRESETS.length:0;S.presetV=2;PRESETS.forEach(([name,aka,its,unit],k)=>{if(k<from||S.recipes.some(r=>r.name===name))return;
   S.recipes.push({id:'p'+(k+1),name,aka,unit,preset:true,servings:1,items:its.map(([id,g,t])=>({n:S.seq++,id,g,t:t||'b',r:false}))})})};
-const fixS=()=>{if(S.mode!=='self')S.mode='pro';if(!S.me||typeof S.me!=='object')S.me={};S.me.target=S.me.target||{};S.me.days=S.me.days||{};if(!Array.isArray(S.fridge))S.fridge=[];if(!Array.isArray(S.diets))S.diets=[];addPresets()};
+const fixS=()=>{if(S.mode!=='self')S.mode='pro';if(!S.me||typeof S.me!=='object')S.me={};S.me.target=S.me.target||{};if(S.me.target.em==='tw')S.me.target.em='kg';S.me.days=S.me.days||{};if(!Array.isArray(S.fridge))S.fridge=[];if(!Array.isArray(S.diets))S.diets=[];addPresets()};
 const SELF=()=>S.mode==='self';
 let V={screen:'list',rec:null,day:0,res:-1,rcp:null,per:1,cj:0,date:dkey(new Date())};   /* 画面の状態（保存しない） */
 let MODE='i';
@@ -300,9 +300,12 @@ const Backup={key:'eiyo-bak',list(){try{return JSON.parse(localStorage.getItem(t
     fixS();S.records.concat(S.recipes,S.custom,S.diets).forEach(x=>x.u=Date.now())}};
 const uid=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);   /* 端末をまたいでも重ならないID */
 /* 同期の突き合わせ用：記録・レシピ・マイ食品ごとに「最後に変えた時刻 u」を付け、消したものは S.del に残す */
-const Stamp={h:new Map(),
-  init(){this.h.clear();['records','recipes','custom','diets'].forEach(k=>S[k].forEach(x=>{const u=x.u;delete x.u;this.h.set(x.id,JSON.stringify(x));x.u=u||0}))},
+const dayEmpty=d=>!d.menus.length&&d.w==null&&!d.memo;
+const Stamp={h:new Map(),dh:new Map(),
+  dj(d){const u=d.u;delete d.u;const j=JSON.stringify(d);if(u!=null)d.u=u;return j},
+  init(){this.h.clear();this.dh.clear();for(const k in (S.me&&S.me.days)||{})this.dh.set(k,this.dj(S.me.days[k]));['records','recipes','custom','diets'].forEach(k=>S[k].forEach(x=>{const u=x.u;delete x.u;this.h.set(x.id,JSON.stringify(x));x.u=u||0}))},
   mark(){const now=Date.now(),seen=new Set();S.del=S.del||{};
+    for(const k in S.me.days){const d=S.me.days[k],j=this.dj(d);if(this.dh.get(k)!==j){if(!(dayEmpty(d)&&d.u==null&&!this.dh.has(k)))d.u=now;this.dh.set(k,j)}}
     ['records','recipes','custom','diets'].forEach(k=>S[k].forEach(x=>{seen.add(x.id);const u=x.u;delete x.u;const j=JSON.stringify(x);x.u=this.h.get(x.id)===j?(u||0):now;this.h.set(x.id,j)}));
     for(const id of [...this.h.keys()])if(!seen.has(id)){S.del[id]=now;this.h.delete(id)}
     for(const id in S.del)if(seen.has(id))delete S.del[id]},
@@ -310,10 +313,12 @@ const Stamp={h:new Map(),
   merge(L,R){const del=Object.assign({},R.del||{});for(const id in L.del||{})del[id]=Math.max(del[id]||0,L.del[id]);
     const pick=k=>{const m=new Map();(R[k]||[]).forEach(x=>m.set(x.id,x));(L[k]||[]).forEach(x=>{const y=m.get(x.id);if(!y||(x.u||0)>=(y.u||0))m.set(x.id,x)});
       return [...m.values()].filter(x=>!(del[x.id]>=(x.u||0))).sort((a,b)=>(a.created||0)-(b.created||0))};
-    const newer=(L.updated||0)>=(R.updated||0)?L:R,o=Object.assign({},newer,{records:pick('records'),recipes:pick('recipes'),custom:pick('custom'),diets:pick('diets'),del,seq:Math.max(L.seq||1,R.seq||1),updated:Math.max(L.updated||0,R.updated||0)});
+    const newer=(L.updated||0)>=(R.updated||0)?L:R,older=newer===L?R:L,days=Object.assign({},(older.me&&older.me.days)||{});
+    for(const k in (newer.me&&newer.me.days)||{}){const a=newer.me.days[k],b=days[k];if(!b||(a.u||0)>=(b.u||0))days[k]=a}
+    const o=Object.assign({},newer,{me:Object.assign({},newer.me||{},{days}),records:pick('records'),recipes:pick('recipes'),custom:pick('custom'),diets:pick('diets'),del,seq:Math.max(L.seq||1,R.seq||1),updated:Math.max(L.updated||0,R.updated||0)});
     return o}};
 Stamp.init();
-const save=()=>{Stamp.mark();Backup.auto();S.updated=Date.now();for(const k in S.me.days){const d=S.me.days[k];if(k!==V.date&&!d.menus.length)delete S.me.days[k]}try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}Sync.push()};
+const save=()=>{Stamp.mark();Backup.auto();S.updated=Date.now();for(const k in S.me.days){const d=S.me.days[k];if(k!==V.date&&dayEmpty(d)&&d.u==null)delete S.me.days[k]}try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}Sync.push()};
 const newDay=()=>({menus:[],chk:[false,false,false,false]});
 if(FRESH&&!S.records.length){
   const it=(id,g)=>({n:S.seq++,id,g,t:'a',r:false});
@@ -543,7 +548,7 @@ const TABSET={pro:[['rec','記録'],['rcp','レシピ'],['my','マイ食品'],['
 const MNAME={pro:'栄養士モード',self:'自分用モード'};
 function render(){
   $('tabs').innerHTML=TABSET[S.mode].map(([k,l])=>`<button data-tab="${k}"${S.tab===k?' aria-current="page"':''}>${l}</button>`).join('');
-  const f={fr:viewFridge,day:V.screen==='result'?viewResult:viewSelf,rec:V.screen==='edit'?viewEdit:V.screen==='result'?viewResult:viewList,rcp:V.screen==='rcpedit'?viewRcpEdit:V.screen==='rcpres'?viewRcpResult:viewRcpList,my:viewMy,set:viewSet}[S.tab];
+  const f={fr:viewFridge,day:V.screen==='result'?viewResult:V.screen==='review'?viewReview:viewSelf,rec:V.screen==='edit'?viewEdit:V.screen==='result'?viewResult:viewList,rcp:V.screen==='rcpedit'?viewRcpEdit:V.screen==='rcpres'?viewRcpResult:viewRcpList,my:viewMy,set:viewSet}[S.tab];
   MODE=S.tab==='rcp'||S.tab==='fr'?'r':'i';
   $('view').innerHTML=f();
 }
@@ -576,7 +581,63 @@ function viewSelf(){
   <div class="gfoot footnote sec">${tg.notes.length?tg.notes.map(esc).join('<br>'):'目標を設定すると、目標との比較が出ます。'}</div></section>
   <div class="narrow"><button class="btn gray block" id="setTarget">自分の目標を設定</button></div>
   <div class="cols">${mealsHTML(day)}</div>
-  <div class="narrow"><button class="btn primary block" id="confirm">くわしい結果を見る</button></div>`;
+  <section class="narrow"><div class="ghead"><span class="footnote sec">この日の体重とメモ</span></div><div class="group">${numField('dw','体重（kg）',day.w==null?'':day.w)}</div>
+  <textarea class="input" id="dmemo" style="min-height:88px;margin-top:8px" aria-label="この日のメモ" placeholder="メモ（体調、空腹感、外食、運動など）">${esc(day.memo||'')}</textarea>
+  <div class="gfoot footnote sec">体重は、朝起きてすぐなど、毎回同じ条件ではかると比べやすくなります。入れた体重とメモは「振り返り」で見られます。</div></section>
+  <div class="narrow stack" style="gap:8px"><button class="btn primary block" id="confirm">くわしい結果を見る</button><button class="btn gray block" id="revOpen">振り返りを見る</button></div>`;
+}
+/* ---------- 振り返り（自分用）：週の平均、日ごとのエネルギー、体重の推移、メモ ---------- */
+const addDays=(k,n)=>{const d=dparse(k);d.setDate(d.getDate()+n);return dkey(d)};
+const weekStart=k=>{const d=dparse(k);return addDays(k,-((d.getDay()+6)%7))};   /* 月曜はじまり */
+const mdl=k=>{const d=dparse(k);return (d.getMonth()+1)+'/'+d.getDate()};
+function barChart(days,vals,T){   /* 日ごとのエネルギー（1系列）。棒を押すとその日へ */
+  const W=340,H=170,L=6,R=6,top=22,bot=26,max=Math.max(T||0,...vals.map(v=>v||0),1)*1.12,bw=(W-L-R)/7,y=v=>top+(H-top-bot)*(1-v/max);
+  const wd=['月','火','水','木','金','土','日'];
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="日ごとのエネルギー。${days.map((k,i)=>mdl(k)+' '+(vals[i]==null?'記録なし':r0(vals[i])+' kcal')).join('、')}" style="display:block;width:100%;height:auto">
+  <line x1="${L}" x2="${W-R}" y1="${H-bot}" y2="${H-bot}" stroke="var(--sep)" stroke-width="1"/>
+  ${days.map((k,i)=>{const v=vals[i],x=L+bw*i+bw*0.2,w=bw*0.6,h=v?Math.max(2,H-bot-y(v)):0;
+    return `<g data-goday="${k}" style="cursor:pointer"><rect x="${L+bw*i}" y="0" width="${bw}" height="${H}" fill="transparent"/>${v?`<path d="M${x},${H-bot}V${y(v)+4}a4,4 0 0 1 4,-4H${x+w-4}a4,4 0 0 1 4,4V${H-bot}Z" fill="var(--accent)"/><text x="${x+w/2}" y="${y(v)-5}" text-anchor="middle" font-size="11" fill="var(--label)" class="num">${r0(v)}</text>`:`<text x="${x+w/2}" y="${H-bot-6}" text-anchor="middle" font-size="11" fill="var(--label2)">−</text>`}
+    <text x="${x+w/2}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--label2)">${wd[i]} ${dparse(k).getDate()}</text></g>`}).join('')}
+  ${T?`<line x1="${L}" x2="${W-R}" y1="${y(T)}" y2="${y(T)}" stroke="var(--label2)" stroke-width="1" stroke-dasharray="4 3"/><text x="${W-R}" y="${y(T)-4}" text-anchor="end" font-size="11" fill="var(--label2)">目標 ${r0(T)}</text>`:''}
+  </svg>`;
+}
+function lineChart(pts,from,to){   /* 体重の推移（1系列）。pts=[[日付,kg]…] */
+  const W=340,H=180,L=38,R=40,top=14,bot=24,n=Math.max(1,Math.round((dparse(to)-dparse(from))/864e5));
+  const ws=pts.map(p=>p[1]);let lo=Math.min(...ws),hi=Math.max(...ws);if(hi-lo<2){const m=(hi+lo)/2;lo=m-1;hi=m+1}else{const pad=(hi-lo)*0.1;lo-=pad;hi+=pad}
+  const X=k=>L+(W-L-R)*Math.round((dparse(k)-dparse(from))/864e5)/n,Y=v=>top+(H-top-bot)*(1-(v-lo)/(hi-lo)),last=pts[pts.length-1];
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="体重の推移。${mdl(pts[0][0])} ${pts[0][1]} kg から ${mdl(last[0])} ${last[1]} kg、記録 ${pts.length} 回" style="display:block;width:100%;height:auto">
+  ${[0,0.5,1].map(t=>{const v=lo+(hi-lo)*t;return `<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--sep)" stroke-width="1"/><text x="${L-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="var(--label2)" class="num">${r1(v)}</text>`}).join('')}
+  <text x="${L}" y="${H-6}" font-size="11" fill="var(--label2)">${mdl(from)}</text><text x="${W-R}" y="${H-6}" text-anchor="end" font-size="11" fill="var(--label2)">${mdl(to)}</text>
+  ${pts.length>1?`<polyline points="${pts.map(p=>X(p[0])+','+Y(p[1])).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`:''}
+  ${pts.map(p=>`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="${pts.length>40?2.5:4}" fill="var(--accent)" stroke="var(--cell)" stroke-width="2"/>`).join('')}
+  <text x="${Math.min(W-2,X(last[0])+8)}" y="${Y(last[1])+4}" font-size="11" font-weight="600" fill="var(--label)" class="num">${last[1]}</text>
+  </svg>`;
+}
+function viewReview(){
+  const today=dkey(new Date()),ws=weekStart(V.date),days=[0,1,2,3,4,5,6].map(i=>addDays(ws,i)),tg=target({target:S.me.target});
+  const ag=days.map(k=>{const d=S.me.days[k];return d&&d.menus.some(m=>m.items.length)?dayAgg(d):null}),rec=ag.filter(Boolean),n=rec.length;
+  const avg=blank();rec.forEach(a=>acc(avg,a,1/n));
+  const wOf=k=>{const d=S.me.days[k];return d&&d.w!=null?+d.w:null},mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  const wk=mean(days.map(wOf).filter(v=>v!=null)),pw=mean([1,2,3,4,5,6,7].map(i=>wOf(addDays(ws,-i))).filter(v=>v!=null));
+  const range=+V.wr||28,to=today,from=addDays(to,-(range-1)),pts=Object.keys(S.me.days).filter(k=>k>=from&&k<=to&&S.me.days[k].w!=null).sort().map(k=>[k,+S.me.days[k].w]);
+  const row=(l,v,sub)=>`<div class="row"><span class="grow">${l}${sub?`<span class="subhead sec wrap">${sub}</span>`:''}</span><span class="val num">${v}</span></div>`;
+  const sg=x=>(x>0?'+':'')+r1(x);
+  const list=days.filter(k=>k<=today).reverse().map(k=>{const d=S.me.days[k]||{},a=ag[days.indexOf(k)];
+    return `<button class="row" data-goday="${k}"><span class="grow"><span>${esc(dlabel(k))}</span>${d.memo?`<span class="subhead sec wrap">${esc(d.memo)}</span>`:''}</span><span class="val num subhead sec" style="text-align:end">${a?r0(a.v[0])+' kcal':'食事の記録なし'}${d.w!=null?'<br>'+d.w+' kg':''}</span></button>`}).join('');
+  return `<div class="navrow"><button class="btn plain" data-back="list">‹ 食事</button><span></span></div>
+  <h1 class="large">振り返り</h1>
+  <div class="inline narrow"><button class="btn gray" id="wPrev" aria-label="前の週">‹</button><span class="headline num" style="flex:1;text-align:center">${mdl(days[0])}（月）〜${mdl(days[6])}（日）</span><button class="btn gray" id="wNext" aria-label="次の週"${addDays(ws,7)>today?' disabled':''}>›</button>${ws!==weekStart(today)?'<button class="btn gray" id="wToday">今週</button>':''}</div>
+  <div class="cols"><div class="stack">
+    <section><div class="ghead"><span class="footnote sec">この週の平均（1日あたり）</span></div><div class="group">${row('食事を記録した日',n+' ／ 7日')}${n?nutRows(avg.v,tg,[0,1,4,5])+row('野菜類',r0(avg.gg['06']||0)+' g'):''}</div>
+    <div class="gfoot footnote sec">${n?'食事を記録した日だけで平均しています。記録のない日は0として数えません。':'この週は、まだ食事の記録がありません。'}${n&&n<4?'記録した日が少ないので、平均は参考程度に見てください。':''}</div></section>
+    <section><div class="ghead"><span class="footnote sec">日ごとのエネルギー（kcal）</span></div><div class="group" style="padding:8px">${barChart(days,ag.map(a=>a?a.v[0]:null),tg.kcal)}</div>
+    <div class="gfoot footnote sec">棒を押すと、その日の食事を開きます。${tg.kcal?'点線は、設定した目標のエネルギーです。':''}</div></section>
+  </div><div class="stack">
+    <section><div class="ghead"><span class="footnote sec">体重の推移（kg）</span></div><div class="seg" role="radiogroup" aria-label="体重を表示する期間" style="margin-bottom:8px">${segHTML('wr',[[28,'4週間'],[91,'3か月'],[365,'1年']],range)}</div>
+    <div class="group">${pts.length?`<div style="padding:8px">${lineChart(pts,from,to)}</div>`:''}${pts.length>1?row('この期間の変化',sg(pts[pts.length-1][1]-pts[0][1])+' kg',mdl(pts[0][0])+' '+pts[0][1]+' kg → '+mdl(pts[pts.length-1][0])+' '+pts[pts.length-1][1]+' kg'):''}${wk!=null?row('この週の平均',r1(wk)+' kg',pw!=null?'前の週の平均 '+r1(pw)+' kg（'+sg(wk-pw)+' kg）':''):''}${pts.length?'':row('体重の記録がありません','')}</div>
+    <div class="gfoot footnote sec">体重は、食事の画面の「この日の体重とメモ」で入れます。1日ごとの上下は、水分や食事の量でも起こります。週の平均どうしで比べると、変化が見やすくなります。今日までの${range===28?'4週間':range===91?'3か月':'1年'}を表示しています。</div></section>
+    <section><div class="ghead"><span class="footnote sec">日ごとの記録とメモ</span></div><div class="group">${list||row('まだ日がありません','')}</div></section>
+  </div></div>`;
 }
 function viewEdit(){
   const r=curRec();if(!r){V.screen='list';return viewList()}
@@ -640,7 +701,7 @@ function viewResult(){
   const row=(l,v,sub)=>`<div class="row"><span class="grow">${l}${sub?`<span class="subhead sec wrap">${sub}</span>`:''}</span><span class="val num">${v}</span></div>`;
   const body=[];
   if(tg.bmi)body.push(row('BMI',r1(tg.bmi),'体重 '+W+' kg ÷ 身長(m)²'));
-  if(tg.tw&&(vk==='dm'||(r.target||{}).em==='tw'))body.push(row('目標体重',r1(tg.tw)+' kg','身長(m)² × '+tg.twBmi));
+  if(!r.self&&tg.tw&&(vk==='dm'||(r.target||{}).em==='tw'))body.push(row('目標体重',r1(tg.tw)+' kg','身長(m)² × '+tg.twBmi));
   if(W&&(vk==='mal'||vk==='ckd')){body.push(row('体重1 kgあたりのエネルギー',r1(a.v[0]/W)+' kcal','現体重 '+W+' kg'));body.push(row('体重1 kgあたりのたんぱく質',(Math.round(a.v[1]/W*100)/100).toFixed(2)+' g','現体重 '+W+' kg'))}
   const cj=CJ.some(c=>c[0]===V.cj)?V.cj:0,C=contrib(days,cj,d<0?Math.max(1,a.n||1):1),ctot=C.reduce((x,y)=>x+y[1],0),[,cn,cu,cd]=NUT[cj];
   const veg=a.gg['06']||0,fru=a.gg['07']||0,alc=a.v[21];
@@ -930,7 +991,7 @@ function drawTarget(){
   $('sheet').innerHTML=sheetShell('目標を設定',`
   <div class="field"><span class="footnote sec flabel" id="sxl">性別</span><div class="seg" role="radiogroup" aria-labelledby="sxl">${segHTML('sex',[['m','男性'],['f','女性']],t.sex||'')}</div></div>
   <div class="group">${numField('t_age','年齢（歳）',t.age)}${numField('t_h','身長（cm）',t.h)}${numField('t_w','体重（kg）',t.w)}</div>
-  <div class="field"><span class="footnote sec flabel" id="eml">必要エネルギー量の求め方</span><div class="seg" role="radiogroup" aria-labelledby="eml">${segHTML('em',[['kg','体重あたり'],['tw','目標体重'],['hb','計算式'],['in','直接入力']],t.em)}</div>
+  <div class="field"><span class="footnote sec flabel" id="eml">必要エネルギー量の求め方</span><div class="seg" role="radiogroup" aria-labelledby="eml">${segHTML('em',SELF()?[['kg','体重あたり'],['hb','計算式'],['in','直接入力']]:[['kg','体重あたり'],['tw','目標体重'],['hb','計算式'],['in','直接入力']],t.em)}</div>
   ${t.em==='hb'?`<div class="group">${numField('t_af','活動係数',t.af,'1.0')}${numField('t_sf','ストレス係数',t.sf,'1.0')}</div><span class="footnote sec flabel">ハリス・ベネディクトの式で基礎エネルギー消費量を求め、係数を掛けます。活動係数の例：ベッド上安静 1.2、ベッド外の活動あり 1.3。性別・年齢・身長・体重が必要です。</span>`
    :t.em==='tw'?`<div class="group">${(+t.age>=65)?numField('t_bmi','目標体重のBMI（22〜25）',t.bmi,'22'):''}${numField('t_ef','エネルギー係数（kcal/kg）',t.ef,'25〜30')}</div><span class="footnote sec flabel">目標体重＝身長(m)² × 22（65歳以上は22〜25から選ぶ）。総エネルギー摂取量＝目標体重 × エネルギー係数。係数の目安：軽い労作 25〜30、普通の労作 30〜35、重い労作 35〜。出典：日本糖尿病学会「糖尿病診療ガイドライン」の目標体重とエネルギー係数（日本老年医学会・日本糖尿病学会「高齢者糖尿病診療ガイドライン2023」Ⅶ章に掲載の内容で確認）。身長と年齢が必要です。</span>`
    :t.em==='kg'?`<div class="group">${numField('t_kk','体重1 kgあたり（kcal）',t.kk,'25〜30')}</div><span class="footnote sec flabel">体重 × 入力した値で求めます。簡易式の目安は25〜30 kcalです。</span>`
@@ -1082,6 +1143,9 @@ document.addEventListener('change',e=>{
   const t=e.target;
   if(t.name==='day'||t.id==='daySel'){V.day=+t.value;render()}
   else if(t.id==='dSel'){V.date=t.value||dkey(new Date());render()}
+  else if(t.id==='dw'){const v=numOf('dw'),d=meDay();if(v==null||v<=0)delete d.w;else d.w=Math.round(v*10)/10;save();render()}
+  else if(t.id==='dmemo'){const d=meDay(),v=t.value.trim();if(v)d.memo=v;else delete d.memo;save()}
+  else if(t.name==='wr'){V.wr=+t.value;render()}
   else if(t.name==='res'){V.res=+t.value;render()}
   else if(t.name==='per'){V.per=+t.value;render()}
   else if(t.name==='pfcm'){S.pfc=t.value;save();render()}
@@ -1105,6 +1169,7 @@ document.addEventListener('change',e=>{
 document.addEventListener('click',e=>{
   if(e.target===$('sheet')){$('sheet').close();return}
   if(e.target===$('alert')){$('alert').close();return}
+  const gd=e.target.closest('[data-goday]');if(gd){V.date=gd.dataset.goday;V.screen='list';render();window.scrollTo(0,0);return}
   const b=e.target.closest('button');if(!b)return;const ds=b.dataset;
   if(ds.tab){S.tab=ds.tab;V.screen=ds.tab==='rcp'?'rcplist':'list';save();render();window.scrollTo(0,0)}
   else if(ds.back){V.screen=ds.back;render();window.scrollTo(0,0)}
@@ -1116,6 +1181,9 @@ document.addEventListener('click',e=>{
   else if(ds.fuse!=null){readAmt();if(ds.fuse===''){cur.use=''}else{const d=new Date();d.setDate(d.getDate()+(+ds.fuse));cur.use=dkey(d)}drawFridge()}
   else if(b.id==='dPrev'||b.id==='dNext'){const d=dparse(V.date);d.setDate(d.getDate()+(b.id==='dNext'?1:-1));V.date=dkey(d);render()}
   else if(b.id==='dToday'){V.date=dkey(new Date());render()}
+  else if(b.id==='revOpen'){V.screen='review';render();window.scrollTo(0,0)}
+  else if(b.id==='wPrev'||b.id==='wNext'){V.date=addDays(weekStart(V.date),b.id==='wNext'?7:-7);render()}
+  else if(b.id==='wToday'){V.date=dkey(new Date());render()}
   else if(b.id==='newRec'){const r={id:uid('r'),label:'',created:Date.now(),date:dkey(new Date()),target:{},days:[newDay()]};S.records.push(r);V.rec=r.id;V.day=0;V.screen='edit';save();render();window.scrollTo(0,0)}
   else if(ds.again){const o=S.records.find(x=>x.id===ds.again),r={id:uid('r'),label:o.label,created:Date.now(),date:dkey(new Date()),target:JSON.parse(JSON.stringify(o.target||{})),view:o.view,days:[newDay()]};S.records.push(r);V.rec=r.id;V.day=0;V.screen='edit';save();render();window.scrollTo(0,0)}
   else if(ds.open){V.rec=ds.open;V.day=0;V.res=-1;V.screen='edit';render();window.scrollTo(0,0)}
